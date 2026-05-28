@@ -181,7 +181,7 @@ export default createRoute(async (c) => {
               
               <div class="space-y-3">
                  {!isUserLoggedIn ? (
-                    <div class="text-center py-6"><a href="/users/login" class="text-xs font-bold text-[#ee4d2d] hover:underline">Login untuk melihat kupon Anda</a></div>
+                    <div class="text-center py-6"><a href="/login" class="text-xs font-bold text-[#ee4d2d] hover:underline">Login untuk melihat kupon Anda</a></div>
                  ) : myVouchers.length === 0 ? (
                     <div class="text-center text-xs text-gray-400 py-6 border border-dashed rounded-xl border-gray-200 dark:border-gray-700">Belum ada kupon yang dibeli.</div>
                  ) : myVouchers.map((v: any) => {
