@@ -6,7 +6,7 @@ export default createRoute(async (c) => {
 
   return c.render(
     <div class="bg-gray-100 min-h-screen font-sans">
-      <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl overflow-x-hidden flex flex-col">
+      <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl flex flex-col">
         
         {/* HEADER / BACK BUTTON */}
         <div class="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-center">
@@ -16,7 +16,7 @@ export default createRoute(async (c) => {
         </div>
 
         {/* ILUSTRASI & TEKS PENYAMBUTAN */}
-        <div class="pt-20 px-6 pb-6 bg-gradient-to-b from-orange-50 to-white">
+        <div class="pt-20 px-6 pb-6 bg-gradient-to-b from-orange-50 to-white flex-shrink-0">
           <div class="w-16 h-16 bg-[#ee4d2d] rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center mb-6 transform -rotate-6">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
           </div>
@@ -25,17 +25,18 @@ export default createRoute(async (c) => {
         </div>
 
         {/* TAB PILIHAN LOGIN / GUEST */}
-        <div class="px-6 flex w-full mb-6">
+        <div class="px-6 flex w-full mb-6 flex-shrink-0">
             <button onclick="switchMode('member')" id="tab-member" class="flex-1 pb-3 text-sm font-black border-b-2 border-[#ee4d2d] text-[#ee4d2d] transition-colors">Pelanggan Member</button>
-            <button onclick="switchMode('guest')" id="tab-guest" class="flex-1 pb-3 text-sm font-black border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors">Makan di Tempat (Guest)</button>
+            <button onclick="switchMode('guest')" id="tab-guest" class="flex-1 pb-3 text-sm font-black border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors">Makan di Tempat</button>
         </div>
 
-        <div class="px-6 flex-1 flex flex-col relative overflow-hidden">
+        {/* CONTAINER FORM */}
+        <div class="px-6 flex-1 flex flex-col relative w-full overflow-y-auto hide-scrollbar pb-6">
           
           {/* ========================================= */}
-          {/* MODE 1: MEMBER LOGIN (TAMPILAN ASLI)      */}
+          {/* MODE 1: MEMBER LOGIN                      */}
           {/* ========================================= */}
-          <div id="form-member-container" class="absolute w-full h-full transition-transform duration-300 transform translate-x-0">
+          <div id="form-member-container" class="flex flex-col flex-1 w-full animate-fade-in">
             <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault(); submitLogin();">
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 ml-1">Alamat Email</label>
@@ -73,11 +74,11 @@ export default createRoute(async (c) => {
             
             <div class="mt-6 flex items-center justify-center gap-4">
               <div class="h-px bg-gray-200 flex-1"></div>
-              <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Baru Pertama Kali?</span>
+              <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Atau</span>
               <div class="h-px bg-gray-200 flex-1"></div>
             </div>
             
-            <div class="pt-4">
+            <div class="pt-4 mt-auto">
                <a href="/register" class="w-full bg-orange-50 text-[#ee4d2d] border border-orange-200 font-bold text-sm py-3.5 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-orange-100">
                   Daftar Menjadi Member
                </a>
@@ -87,10 +88,11 @@ export default createRoute(async (c) => {
           {/* ========================================= */}
           {/* MODE 2: GUEST / DINE-IN (PILIH MEJA)      */}
           {/* ========================================= */}
-          <div id="form-guest-container" class="absolute w-full h-full transition-transform duration-300 transform translate-x-full">
+          {/* Awalnya kita sembunyikan dengan class 'hidden' */}
+          <div id="form-guest-container" class="hidden flex-col flex-1 w-full animate-fade-in">
              <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl mb-5">
                 <p class="text-[11px] text-blue-800 font-medium leading-relaxed">
-                   Ingin makan di tempat tanpa daftar akun? Silakan isi nama dan pilih meja Anda. Pesanan akan langsung dikirim ke meja.
+                   Ingin makan di tempat tanpa daftar akun? Silakan isi nama dan pilih meja Anda. Pesanan akan dikirim ke meja.
                 </p>
              </div>
 
@@ -111,10 +113,10 @@ export default createRoute(async (c) => {
                   <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                   </div>
-                  <select id="guestTable" required class="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-[#ee4d2d] transition-all font-bold appearance-none">
-                     <option value="" disabled selected>-- Ketuk untuk Pilih Meja --</option>
+                  <select id="guestTable" required class="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-[#ee4d2d] transition-all font-bold appearance-none cursor-pointer">
+                     <option value="" disabled selected>-- Pilih Meja Kosong --</option>
                      {availableTables.length === 0 ? (
-                        <option disabled>Semua meja sedang penuh</option>
+                        <option disabled>Semua meja sedang penuh/dipesan</option>
                      ) : availableTables.map((t: any) => (
                         <option value={t.id}>{t.name}</option>
                      ))}
@@ -125,7 +127,7 @@ export default createRoute(async (c) => {
                 </div>
               </div>
 
-              <div class="pt-4">
+              <div class="pt-4 mt-auto">
                 <button id="btnGuest" type="submit" class="w-full bg-[#ee4d2d] text-white font-bold text-sm py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:bg-orange-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                   <span>Mulai Pesan</span>
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -146,13 +148,17 @@ export default createRoute(async (c) => {
            const tabGuest = document.getElementById("tab-guest"); \
            \
            if(mode === "member") { \
-              formMember.style.transform = "translateX(0)"; \
-              formGuest.style.transform = "translateX(100%)"; \
+              formGuest.classList.add("hidden"); \
+              formGuest.classList.remove("flex"); \
+              formMember.classList.remove("hidden"); \
+              formMember.classList.add("flex"); \
               tabMember.className = "flex-1 pb-3 text-sm font-black border-b-2 border-[#ee4d2d] text-[#ee4d2d] transition-colors"; \
               tabGuest.className = "flex-1 pb-3 text-sm font-black border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors"; \
            } else { \
-              formMember.style.transform = "translateX(-100%)"; \
-              formGuest.style.transform = "translateX(0)"; \
+              formMember.classList.add("hidden"); \
+              formMember.classList.remove("flex"); \
+              formGuest.classList.remove("hidden"); \
+              formGuest.classList.add("flex"); \
               tabGuest.className = "flex-1 pb-3 text-sm font-black border-b-2 border-[#ee4d2d] text-[#ee4d2d] transition-colors"; \
               tabMember.className = "flex-1 pb-3 text-sm font-black border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-colors"; \
            } \
