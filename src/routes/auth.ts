@@ -67,3 +67,47 @@ authRouter.post('/register', async (c) => {
     return c.json({ success: false, message: 'Email sudah terdaftar.' }, 400);
   }
 });
+
+// ==========================================
+// ENDPOINT LOGIN GUEST (MAKAN DI TEMPAT / DINE-IN)
+// ==========================================
+authRouter.post('/guest-login', async (c) => {
+    const db = c.env.DB;
+    const body = await c.req.json();
+    
+    if (!body.guest_name || !body.table_id) {
+        return c.json({ success: false, message: 'Nama dan Meja wajib diisi.' }, 400);
+    }
+
+    try {
+        // Cek apakah meja memang kosong
+        const table: any = await db.prepare('SELECT status FROM tables WHERE id = ?').bind(body.table_id).first();
+        if (!table) return c.json({ success: false, message: 'Meja tidak ditemukan.' }, 404);
+        if (table.status !== 'IDLE') return c.json({ success: false, message: 'Meja sedang digunakan.' }, 400);
+
+        // Buat ID User Sementara
+        const guestId = 'GUEST-' + crypto.randomUUID().substring(0,8).toUpperCase();
+
+        // Kunci Meja menjadi OCCUPIED
+        await db.prepare("UPDATE tables SET status = 'OCCUPIED' WHERE id = ?").bind(body.table_id).run();
+
+        // Terbitkan Token JWT Khusus Guest
+        const payload = {
+            id: guestId,
+            role: 'GUEST',
+            name: body.guest_name,
+            table_id: body.table_id,
+            exp: Math.floor(Date.now() / 1000) + (12 * 60 * 60) // Expire 12 Jam
+        };
+
+        const token = await sign(payload, c.env.JWT_SECRET, 'HS256');
+
+        return c.json({
+            success: true,
+            token,
+            message: 'Sesi Meja berhasil dibuat'
+        });
+    } catch (e: any) {
+        return c.json({ success: false, message: 'Database Error: ' + e.message }, 500);
+    }
+});
