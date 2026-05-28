@@ -17,7 +17,7 @@ export default createRoute(async (c) => {
     } catch (e) {}
   }
 
-  if (!isUserLoggedIn) return c.redirect('/users/login');
+  if (!isUserLoggedIn) return c.redirect('/login');
 
   const orderId = c.req.param('id');
 
@@ -88,7 +88,7 @@ export default createRoute(async (c) => {
         
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
-            <a href="/users/orders" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
+            <a href="/orders" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
             <h1 class="text-lg font-black text-gray-900 dark:text-white">Detail Pesanan</h1>
