@@ -54,7 +54,7 @@ export default createRoute(async (c) => {
         {/* HEADER KERANJANG */}
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
-            <a href="/users" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
+            <a href="/" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
             <h1 class="text-lg font-black text-gray-900 dark:text-white">Keranjang Saya</h1>
@@ -362,7 +362,7 @@ export default createRoute(async (c) => {
                  <div class="text-5xl mb-4">🛒</div>
                  <h4 class="font-bold text-gray-900 dark:text-white">Keranjang masih kosong</h4>
                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Yuk, cari makanan lezat sekarang!</p>
-                 <a href="/users" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-orange-500/30 hover:bg-orange-700 transition-colors">Mulai Pesan</a>
+                 <a href="/" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-orange-500/30 hover:bg-orange-700 transition-colors">Mulai Pesan</a>
               </div>
             \`;
             checkoutSection.classList.add('hidden');
@@ -475,7 +475,7 @@ export default createRoute(async (c) => {
            const token = getCookie('token');
 
            if (!token) {
-               window.location.href = '/users/login';
+               window.location.href = '/login';
                return;
            }
 
@@ -503,7 +503,7 @@ export default createRoute(async (c) => {
              });
              
              if (res.status === 401) {
-                 window.location.href = '/users/login';
+                 window.location.href = '/login';
                  return;
              }
 
@@ -511,7 +511,7 @@ export default createRoute(async (c) => {
              if (data.success) {
                localStorage.removeItem('spos_cart');
                showToast('Pesanan berhasil dibuat!');
-               setTimeout(() => { window.location.href = '/users/orders/' + data.data.order_id; }, 1500);
+               setTimeout(() => { window.location.href = '/orders/' + data.data.order_id; }, 1500);
              } else {
                showToast(data.message || 'Gagal membuat pesanan.', true);
              }
