@@ -67,7 +67,7 @@ export default createRoute((c) => {
           </div>
 
           <div class="text-center pb-8 mt-auto">
-            <p class="text-sm text-gray-500 font-medium">Belum punya akun? <a href="/users/register" class="text-[#ee4d2d] font-bold hover:underline">Daftar di sini</a></p>
+            <p class="text-sm text-gray-500 font-medium">Belum punya akun? <a href="register" class="text-[#ee4d2d] font-bold hover:underline">Daftar di sini</a></p>
           </div>
         </div>
       </div>
