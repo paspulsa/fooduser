@@ -88,10 +88,10 @@ export default createRoute(async (c) => {
                <div class="text-5xl mb-4 opacity-50">🧾</div>
                <h4 class="font-bold text-gray-900 dark:text-white">Belum Ada Pesanan</h4>
                <p class="text-xs text-gray-500 mt-1">Pesanan Anda akan muncul di sini.</p>
-               <a href="/users" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md">Pesan Sekarang</a>
+               <a href="/" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md">Pesan Sekarang</a>
             </div>
           ) : orders.map((order: any) => (
-            <a href={`/users/orders/${order.id}`} class="block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow active:scale-[0.98] transform relative overflow-hidden group">
+            <a href={`/orders/${order.id}`} class="block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow active:scale-[0.98] transform relative overflow-hidden group">
               <div class="flex justify-between items-start mb-3">
                 <div>
                   <span class="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider">{new Date(order.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
