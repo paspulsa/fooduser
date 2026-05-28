@@ -21,7 +21,7 @@ export default createRoute(async (c) => {
 
   // Proteksi Halaman: Wajib Login
   if (!isUserLoggedIn) {
-    return c.redirect('/users/login');
+    return c.redirect('/login');
   }
 
   let orders: any[] = [];
