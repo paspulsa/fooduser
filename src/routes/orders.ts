@@ -104,7 +104,7 @@ orderRouter.post('/checkout', async (c) => {
     // 4. Kalkulasi Diskon Kupon & Eksekusi Sisa Kupon ke Poin
     let rawCouponDiscount = 0;
     let appliedCouponDiscount = 0;
-    let excessCouponValue = 0; // Sisa kupon yang akan jadi poin
+    let excessCouponValue = 0; 
 
     if (body.coupon_code) {
       const coupon: any = await db.prepare('SELECT * FROM coupons WHERE code = ? AND is_active = 1').bind(body.coupon_code).first();
@@ -130,7 +130,16 @@ orderRouter.post('/checkout', async (c) => {
     }
 
     // 5. Total Sementara Setelah Kupon
-    const baseTotal = totalBeforeDiscount - appliedCouponDiscount;
+    let baseTotal = totalBeforeDiscount - appliedCouponDiscount;
+
+    // KALKULASI BIAYA MDR (MERCHANT DISCOUNT RATE)
+    let mdrFee = 0;
+    if (baseTotal >= 1000000) {
+        mdrFee = Math.floor(baseTotal * 0.007); // 0.7%
+    } else if (baseTotal >= 500000) {
+        mdrFee = Math.floor(baseTotal * 0.003); // 0.3%
+    }
+    baseTotal += mdrFee;
 
     // 6. Cek Saldo Point User
     const pointData: any = await db.prepare('SELECT balance FROM points WHERE user_id = ?').bind(user.id).first();
@@ -171,7 +180,10 @@ orderRouter.post('/checkout', async (c) => {
     }
 
     const orderId = 'ORD-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
-    const finalAddress = body.notes ? `${body.address || '-'} (Catatan: ${body.notes})` : (body.address || '-');
+    
+    // Gabungkan info alamat, notes, dan MDR ke satu field
+    const mdrNote = mdrFee > 0 ? `| Termasuk MDR: Rp ${mdrFee}` : '';
+    const finalAddress = body.notes ? `${body.address || '-'} (Catatan: ${body.notes}) ${mdrNote}` : `${body.address || '-'} ${mdrNote}`;
 
     // ==========================================
     // 8A. SKENARIO AUTO-LUNAS (TAGIHAN RP 0)
@@ -292,6 +304,15 @@ orderRouter.post('/checkout-voucher', async (c) => {
 
     await db.prepare(`INSERT OR IGNORE INTO restaurants (id, name, address) VALUES ('SYSTEM', 'Sistem Pembelian Voucher', 'Digital')`).run();
 
+    // KALKULASI BIAYA MDR (MERCHANT DISCOUNT RATE) UNTUK VOUCHER
+    let mdrFee = 0;
+    if (baseTotal >= 1000000) {
+        mdrFee = Math.floor(baseTotal * 0.007); // 0.7%
+    } else if (baseTotal >= 500000) {
+        mdrFee = Math.floor(baseTotal * 0.003); // 0.3%
+    }
+    baseTotal += mdrFee;
+
     const pointData: any = await db.prepare('SELECT balance FROM points WHERE user_id = ?').bind(user.id).first();
     const userPoints = pointData ? pointData.balance : 0;
 
@@ -312,14 +333,14 @@ orderRouter.post('/checkout-voucher', async (c) => {
     const orderId = 'VCH-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
     
     // Notes digabungkan ke address agar sesuai dengan skema tabel
-    const notesJson = JSON.stringify({ is_voucher: true, voucher_value: voucherValue, bulk_qty: bulkQty });
+    const notesJson = JSON.stringify({ is_voucher: true, voucher_value: voucherValue, bulk_qty: bulkQty, mdr_fee: mdrFee });
     const finalAddress = `DIGITAL VOUCHER | Catatan: ${notesJson}`;
 
     await db.prepare(
       `INSERT INTO orders (id, user_id, restaurant_id, total_price, status, address, order_type, payment_method, points_used) 
        VALUES (?, ?, 'SYSTEM', ?, 'PENDING', ?, 'VOUCHER', ?, ?)`
     ).bind(
-      orderId, user.id, baseTotal, 
+      orderId, user.id, 'SYSTEM', baseTotal, 
       finalAddress, 
       finalAmount === 0 ? 'POINTS' : 'QRIS', 
       pointsUsed
