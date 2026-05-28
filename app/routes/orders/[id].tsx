@@ -17,19 +17,16 @@ export default createRoute(async (c) => {
     } catch (e) {}
   }
 
-  // URL sudah di-fix ke root
   if (!isUserLoggedIn) return c.redirect('/login');
 
   const orderId = c.req.param('id');
 
-  // Tarik Data Order Utama
   const order: any = await c.env.DB.prepare(
     'SELECT * FROM orders WHERE id = ? AND user_id = ?'
   ).bind(orderId, userId).first();
 
   if (!order) return c.notFound();
 
-  // Tarik Data Item Pesanan
   const { results: orderItems } = await c.env.DB.prepare(`
     SELECT od.quantity, od.price, m.name 
     FROM order_details od 
@@ -37,17 +34,47 @@ export default createRoute(async (c) => {
     WHERE od.order_id = ?
   `).bind(orderId).all();
 
-  // Tarik Data Transaksi / Pembayaran (Termasuk unique_code)
   const transaction: any = await c.env.DB.prepare(
-    'SELECT final_amount, status, raw_qris, unique_code FROM transactions WHERE order_id = ?'
+    'SELECT amount, final_amount, status, raw_qris, unique_code FROM transactions WHERE order_id = ?'
   ).bind(orderId).first();
 
   const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
-  const grandTotal = order.total_price || order.total_amount || 0; 
   const orderDate = new Date(order.created_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
 
+  // ==========================================
+  // KALKULASI REVERSE ENGINEERING UNTUK FRONTEND
+  // ==========================================
+  let subtotal = 0;
+  let ongkir = 0;
+
+  if (order.order_type === 'VOUCHER') {
+      subtotal = order.total_price;
+      ongkir = 0;
+  } else {
+      subtotal = orderItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+      ongkir = Math.max(0, order.total_price - subtotal + order.coupon_discount);
+  }
+
+  const uniqueCode = transaction ? (transaction.unique_code || 0) : 0;
+  
+  // MDR Fee = Final Amount - Base Total (total_price) - Unique Code + Points Used
+  let mdrFee = 0;
+  let finalBayar = order.total_price;
+  
+  if (transaction) {
+      finalBayar = transaction.final_amount;
+      mdrFee = Math.max(0, finalBayar - order.total_price - uniqueCode + order.points_used);
+  } else if (order.status === 'PROCESSING' || order.status === 'COMPLETED') {
+      // Jika lunas pakai poin (tanpa transaksi QRIS)
+      finalBayar = 0;
+      mdrFee = 0; 
+  }
+
+  // Total Tagihan Murni (Barang + Ongkir + MDR - Kupon) sebelum Poin & Unique Code
+  const totalTagihan = order.total_price + mdrFee;
+
   return c.render(
-    <div class="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans print:bg-white print:min-h-0">
+    <div class="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans print:bg-white print:min-h-0 relative">
       <style dangerouslySetInnerHTML={{
         __html: `
           .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -78,7 +105,6 @@ export default createRoute(async (c) => {
         
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
-            {/* URL sudah di-fix ke root */}
             <a href="/orders" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
@@ -107,7 +133,7 @@ export default createRoute(async (c) => {
             <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">Daftar Menu</h3>
             <div class="space-y-3">
               {orderItems.length === 0 ? (
-                <p class="text-xs text-gray-400 italic">Rincian menu sedang disinkronisasi...</p>
+                <p class="text-xs text-gray-400 italic">{order.order_type === 'VOUCHER' ? 'Pembelian Voucher Digital' : 'Rincian menu sedang disinkronisasi...'}</p>
               ) : orderItems.map((item: any) => (
                 <div class="flex justify-between items-start text-sm">
                   <div class="flex gap-2">
@@ -126,22 +152,55 @@ export default createRoute(async (c) => {
           <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">Ringkasan Biaya</h3>
             <div class="space-y-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+              
+              <div class="flex justify-between">
+                <span>Subtotal Pesanan</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">{formatter.format(subtotal)}</span>
+              </div>
+              
+              {ongkir > 0 && (
+                <div class="flex justify-between">
+                  <span>Ongkos Kirim</span>
+                  <span class="font-bold text-gray-800 dark:text-gray-200">{formatter.format(ongkir)}</span>
+                </div>
+              )}
+
+              {mdrFee > 0 && (
+                <div class="flex justify-between text-yellow-600 dark:text-yellow-500">
+                  <span class="flex items-center gap-1">Biaya Layanan (MDR) <button onclick="document.getElementById('modal-info').classList.replace('hidden', 'flex')" class="text-gray-400 hover:text-[#ee4d2d]"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button></span>
+                  <span class="font-bold">{formatter.format(mdrFee)}</span>
+                </div>
+              )}
+
               {order.coupon_discount > 0 && (
                 <div class="flex justify-between text-green-500">
                   <span>Diskon Kupon</span>
                   <span class="font-bold">- {formatter.format(order.coupon_discount)}</span>
                 </div>
               )}
+
+              <div class="flex justify-between pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 mt-2">
+                <span class="font-black text-sm text-gray-900 dark:text-white">Total Tagihan</span>
+                <span class="font-black text-sm text-gray-900 dark:text-white">{formatter.format(totalTagihan)}</span>
+              </div>
+
               {order.points_used > 0 && (
-                <div class="flex justify-between text-[#ee4d2d]">
-                  <span>Potongan Poin</span>
+                <div class="flex justify-between text-[#ee4d2d] pt-1">
+                  <span>Potongan Saldo Poin</span>
                   <span class="font-bold">- {formatter.format(order.points_used)}</span>
                 </div>
               )}
-              
-              <div class="flex justify-between pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 mt-2">
-                <span class="font-black text-sm text-gray-900 dark:text-white">Total Tagihan</span>
-                <span class="font-black text-lg text-[#ee4d2d]">{formatter.format(grandTotal)}</span>
+
+              {uniqueCode > 0 && (
+                <div class="flex justify-between text-[#ee4d2d] pt-1">
+                  <span class="flex items-center gap-1">Kode Unik <button onclick="document.getElementById('modal-info').classList.replace('hidden', 'flex')" class="text-gray-400 hover:text-[#ee4d2d]"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button></span>
+                  <span class="font-bold">+{uniqueCode}</span>
+                </div>
+              )}
+
+              <div class="flex justify-between pt-3 border-t border-gray-200 dark:border-gray-700 mt-2">
+                <span class="font-black text-base text-gray-900 dark:text-white">Total Bayar</span>
+                <span class="font-black text-xl text-[#ee4d2d]">{formatter.format(finalBayar)}</span>
               </div>
             </div>
           </div>
@@ -149,7 +208,7 @@ export default createRoute(async (c) => {
           {transaction && transaction.status === 'UNPAID' && transaction.raw_qris && (
             <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-4 rounded-2xl text-center shadow-sm">
               <h3 class="text-sm font-black text-[#ee4d2d] mb-2">Selesaikan Pembayaran</h3>
-              <p class="text-xs text-orange-800 dark:text-orange-200 mb-4">Silakan bayar sejumlah <strong class="font-black">{formatter.format(transaction.final_amount)}</strong> dengan menscan QRIS di bawah ini.</p>
+              <p class="text-xs text-orange-800 dark:text-orange-200 mb-4">Silakan bayar sejumlah <strong class="font-black">{formatter.format(finalBayar)}</strong> dengan menscan QRIS di bawah ini.</p>
               
               <div class="inline-block p-4 bg-white rounded-2xl shadow-sm border border-orange-100 dark:border-gray-700">
                 <img 
@@ -159,18 +218,8 @@ export default createRoute(async (c) => {
                 />
               </div>
 
-              {/* FITUR KODE UNIK & TOMBOL CEK STATUS */}
               <div class="mt-4 pt-4 border-t border-orange-200 dark:border-orange-800/50">
-                <div class="flex justify-between items-center bg-orange-100 dark:bg-orange-900/30 px-3 py-2 rounded-lg">
-                   <span class="text-xs font-bold text-orange-800 dark:text-orange-200">Kode Unik:</span>
-                   <span class="text-sm font-black text-[#ee4d2d]">+{transaction.unique_code || 0}</span>
-                </div>
-                
-                <button onclick="document.getElementById('modal-info').classList.remove('hidden')" class="text-[10px] text-[#ee4d2d] underline mt-3 font-bold w-full text-center block">
-                   Kenapa ada kode unik dan biaya lainnya?
-                </button>
-
-                <button onclick="location.reload()" class="mt-4 w-full bg-[#ee4d2d] text-white font-bold py-3 rounded-xl shadow-md hover:bg-orange-700 transition active:scale-95 flex items-center justify-center gap-2">
+                <button onclick="location.reload()" class="w-full bg-[#ee4d2d] text-white font-bold py-3 rounded-xl shadow-md hover:bg-orange-700 transition active:scale-95 flex items-center justify-center gap-2">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                    Cek Status Pembayaran
                 </button>
@@ -185,25 +234,31 @@ export default createRoute(async (c) => {
 
         </div>
         
-        {/* MODAL INFORMASI KODE UNIK & MDR */}
-        <div id="modal-info" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 class="font-black text-gray-900 dark:text-white mb-4 text-sm flex items-center gap-2">
-              <svg class="w-5 h-5 text-[#ee4d2d]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              Informasi Pembayaran
-            </h3>
-            <div class="space-y-4 text-xs text-gray-600 dark:text-gray-300 leading-relaxed text-justify">
-               <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">1. Angka Unik</strong> Angka ini dibuat secara otomatis untuk mengidentifikasi pembayaran order secara otomatis dan menjadi bagian dari biaya pemrosesan pembayaran.</p>
-               <p class="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-lg border border-orange-100 dark:border-orange-800/50">Jika Anda adalah member terdaftar, maka angka unik itu akan menjadi point. Ketika Anda belanja selanjutnya, point itu otomatis akan digunakan sebagai potongan pembayaran.</p>
-               <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">2. Biaya Layanan QRIS (MDR)</strong> Jika orderan Anda di atas <strong>Rp 500.000 - Rp 999.999</strong>, maka akan dikenakan MDR sebesar <strong>0.3%</strong> dari total pesanan dan jika di atas itu dikenakan MDR <strong>0.7%</strong> dari nilai total pembayaran.</p>
-            </div>
-            <button onclick="document.getElementById('modal-info').classList.add('hidden')" class="mt-6 w-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white font-bold py-3 rounded-xl hover:bg-gray-200 transition active:scale-95">Tutup</button>
+        {/* MODAL INFORMASI KODE UNIK & MDR (DIPERBAIKI AGAR PAS DI TENGAH CONTAINER MOBILE) */}
+        <div id="modal-info" class="fixed inset-0 z-[100] hidden justify-center">
+          <div class="w-full max-w-md relative flex items-center justify-center h-full p-4">
+             {/* Backdrop */}
+             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('modal-info').classList.replace('flex', 'hidden')"></div>
+             
+             {/* Modal Content */}
+             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full relative z-10 shadow-2xl">
+               <h3 class="font-black text-gray-900 dark:text-white mb-4 text-sm flex items-center gap-2">
+                 <svg class="w-5 h-5 text-[#ee4d2d]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                 Informasi Pembayaran
+               </h3>
+               <div class="space-y-4 text-xs text-gray-600 dark:text-gray-300 leading-relaxed text-justify">
+                  <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">1. Angka Unik</strong> Angka ini dibuat secara otomatis untuk mengidentifikasi pembayaran order secara otomatis dan menjadi bagian dari biaya pemrosesan pembayaran.</p>
+                  <p class="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-lg border border-orange-100 dark:border-orange-800/50">Jika Anda adalah member terdaftar, maka angka unik itu akan menjadi point. Ketika Anda belanja selanjutnya, point itu otomatis akan digunakan sebagai potongan pembayaran.</p>
+                  <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">2. Biaya Layanan QRIS (MDR)</strong> Jika orderan Anda di atas <strong>Rp 500.000 - Rp 999.999</strong>, maka akan dikenakan MDR sebesar <strong>0.3%</strong> dari total pesanan dan jika di atas itu dikenakan MDR <strong>0.7%</strong> dari nilai total pembayaran.</p>
+               </div>
+               <button onclick="document.getElementById('modal-info').classList.replace('flex', 'hidden')" class="mt-6 w-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white font-bold py-3 rounded-xl hover:bg-gray-200 transition active:scale-95">Tutup Paham</button>
+             </div>
           </div>
         </div>
 
       </div>
 
-      {/* 2. STRUK PRINTER THERMAL (HANYA MUNCUL SAAT DI-PRINT) */}
+      {/* 2. STRUK PRINTER THERMAL (DIPERBAIKI) */}
       <div class="hidden print:block thermal-receipt">
         <div style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 4px;">KEDAI PANGSIT KEMBAR 88</div>
         <div style="text-align: center; margin-bottom: 8px;">
@@ -222,7 +277,7 @@ export default createRoute(async (c) => {
 
         <table style="width: 100%; text-align: left; margin-bottom: 8px;">
           {orderItems.length === 0 ? (
-            <tr><td colspan="3" style="text-align: center; font-style: italic;">Rincian disinkronisasi...</td></tr>
+            <tr><td colspan="3" style="text-align: center; font-style: italic;">{order.order_type === 'VOUCHER' ? 'Voucher Digital' : '-'}</td></tr>
           ) : orderItems.map((item: any) => (
             <tr>
               <td style="width: 15%; vertical-align: top;">{item.quantity}x</td>
@@ -235,15 +290,20 @@ export default createRoute(async (c) => {
         <div class="thermal-border"></div>
         
         <table style="width: 100%; font-weight: bold;">
-          {order.coupon_discount > 0 && (
-            <tr><td style="padding-bottom: 2px;">Kupon</td><td style="text-align: right;">-{formatter.format(order.coupon_discount).replace('Rp', '')}</td></tr>
-          )}
-          {order.points_used > 0 && (
-            <tr><td style="padding-bottom: 2px;">Poin</td><td style="text-align: right;">-{formatter.format(order.points_used).replace('Rp', '')}</td></tr>
-          )}
+          <tr><td style="padding-bottom: 2px;">Subtotal</td><td style="text-align: right;">{formatter.format(subtotal).replace('Rp', '')}</td></tr>
+          {ongkir > 0 && <tr><td style="padding-bottom: 2px;">Ongkir</td><td style="text-align: right;">{formatter.format(ongkir).replace('Rp', '')}</td></tr>}
+          {mdrFee > 0 && <tr><td style="padding-bottom: 2px;">MDR</td><td style="text-align: right;">{formatter.format(mdrFee).replace('Rp', '')}</td></tr>}
+          {order.coupon_discount > 0 && <tr><td style="padding-bottom: 2px;">Kupon</td><td style="text-align: right;">-{formatter.format(order.coupon_discount).replace('Rp', '')}</td></tr>}
+          
+          <div class="thermal-border"></div>
+
+          <tr><td style="padding-top: 2px;">Tagihan</td><td style="text-align: right; padding-top: 2px;">{formatter.format(totalTagihan).replace('Rp', '')}</td></tr>
+          {order.points_used > 0 && <tr><td style="padding-bottom: 2px;">Pot. Poin</td><td style="text-align: right;">-{formatter.format(order.points_used).replace('Rp', '')}</td></tr>}
+          {uniqueCode > 0 && <tr><td style="padding-bottom: 2px;">Kd. Unik</td><td style="text-align: right;">+{uniqueCode}</td></tr>}
+          
           <tr>
-            <td style="font-size: 13px; padding-top: 4px;">TOTAL</td>
-            <td style="text-align: right; font-size: 13px; padding-top: 4px;">{formatter.format(grandTotal).replace('Rp', '')}</td>
+            <td style="font-size: 13px; padding-top: 4px;">TOT. BAYAR</td>
+            <td style="text-align: right; font-size: 13px; padding-top: 4px;">{formatter.format(finalBayar).replace('Rp', '')}</td>
           </tr>
         </table>
         
