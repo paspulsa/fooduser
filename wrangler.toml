@@ -1,0 +1,29 @@
+name = "kpkembar"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# =======================================================
+# KONFIGURASI DATABASE CLOUDFLARE D1
+# =======================================================
+# Pastikan Anda mengganti 'database_id' dengan ID asli yang 
+# muncul di terminal saat Anda menjalankan: wrangler d1 create shopeefood-db
+[[d1_databases]]
+binding = "DB"
+database_name = "kpkembar"
+database_id = "ce0a7a7e-2405-4980-bc25-06cacc23f05a"
+
+# =======================================================
+# KONFIGURASI STORAGE CLOUDFLARE R2 (Untuk Gambar)
+# =======================================================
+# Pastikan Anda sudah membuat bucket R2 bernama 'shopeefood-images'
+[[r2_buckets]]
+binding = "IMAGE_BUCKET"
+bucket_name = "kpkembar-images"
+
+# =======================================================
+# VARIABEL LINGKUNGAN (ENVIRONMENT VARIABLES)
+# =======================================================
+[vars]
+# Ganti dengan URL Public R2 Anda yang didapat dari Dashboard Cloudflare
+R2_PUBLIC_URL = "https://kpkembarcdn.paspulsa.com"
