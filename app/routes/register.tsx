@@ -7,7 +7,7 @@ export default createRoute((c) => {
         
         {/* HEADER / BACK BUTTON */}
         <div class="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-center bg-white/80 backdrop-blur-md">
-          <a href="/users/login" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors shadow-sm border border-gray-100">
+          <a href="/login" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors shadow-sm border border-gray-100">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
           </a>
           <h2 class="font-bold text-gray-800 text-sm">Daftar Akun Baru</h2>
@@ -74,7 +74,7 @@ export default createRoute((c) => {
           </form>
 
           <div class="text-center pb-8 mt-10">
-            <p class="text-sm text-gray-500 font-medium">Sudah punya akun? <a href="/users/login" class="text-[#ee4d2d] font-bold hover:underline">Masuk</a></p>
+            <p class="text-sm text-gray-500 font-medium">Sudah punya akun? <a href="/login" class="text-[#ee4d2d] font-bold hover:underline">Masuk</a></p>
           </div>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default createRoute((c) => {
             
             if (data.success || res.ok) {
               showToast('Pendaftaran sukses! Silakan masuk.');
-              setTimeout(() => { window.location.href = '/users/login'; }, 1500);
+              setTimeout(() => { window.location.href = '/login'; }, 1500);
             } else {
               showToast(data.message || 'Email mungkin sudah terdaftar.', true);
               btn.disabled = false;
