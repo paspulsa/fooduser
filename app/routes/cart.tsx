@@ -15,10 +15,7 @@ export default createRoute(async (c) => {
     try {
       const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
       if (payload && payload.id) {
-        // Tarik profil user
         const user = await c.env.DB.prepare('SELECT name, address, phone FROM users WHERE id = ?').bind(payload.id).first<any>();
-        
-        // Tarik saldo point user (Jika kosong, defaults to 0)
         const pts = await c.env.DB.prepare('SELECT balance FROM points WHERE user_id = ?').bind(payload.id).first<any>();
         
         if (user) {
@@ -32,7 +29,6 @@ export default createRoute(async (c) => {
     } catch (e) {}
   }
 
-  // Tarik Pengaturan Ongkos Kirim & Lokasi Resto
   const deliverySettings = await c.env.DB.prepare('SELECT * FROM delivery_settings LIMIT 1').first<any>() || {
     free_range_max: 2, mid_range_max: 3, mid_range_price: 8000, max_range_price: 10000, max_radius_limit: 5, resto_lat: -6.8183497, resto_lng: 107.2972743
   };
@@ -62,7 +58,7 @@ export default createRoute(async (c) => {
           <button onclick="clearCart()" class="text-sm font-bold text-[#ee4d2d] hover:underline transition-all">Hapus Semua</button>
         </div>
 
-        {/* ALAMAT PENGANTARAN */}
+        {/* ALAMAT PENGANTARAN (MANUAL & GPS) */}
         <div class="p-4 mt-2">
           <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-orange-100 dark:border-gray-700 flex items-start gap-3 relative overflow-hidden">
             <div class="absolute top-0 left-0 w-1.5 h-full bg-[#ee4d2d]"></div>
@@ -72,14 +68,17 @@ export default createRoute(async (c) => {
             <div class="flex-1">
               <div class="flex justify-between items-center mb-1">
                 <h3 class="text-sm font-black text-gray-900 dark:text-white">Alamat Pengantaran</h3>
-                <button onclick="detectGPSLocation()" class="text-[11px] font-bold text-[#ee4d2d] bg-orange-50 dark:bg-[#ee4d2d]/10 px-2 py-1 rounded hover:bg-orange-100 transition-colors" id="btn-gps-refresh">Deteksi GPS</button>
+                <button onclick="detectGPSLocation()" class="text-[11px] font-bold text-[#ee4d2d] bg-orange-50 dark:bg-[#ee4d2d]/10 px-2 py-1.5 rounded-lg hover:bg-orange-100 transition-colors shadow-sm active:scale-95" id="btn-gps-refresh">
+                  📍 Hitung Jarak
+                </button>
               </div>
-              <p class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-0.5">{userName || 'Tamu'}</p>
-              <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed" id="cart-address-display">
-                {userAddress || 'Ketuk deteksi GPS untuk menghitung ongkir...'}
-              </p>
-              <div class="mt-2 text-[10px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/30 p-1.5 rounded" id="cart-distance-display">
-                 Status Jarak: Belum Dihitung
+              <p class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">{userName || 'Tamu'}</p>
+              
+              <textarea id="cart-address-input" rows={2} class="w-full text-xs text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 p-2.5 rounded-xl focus:outline-none focus:border-[#ee4d2d] focus:ring-1 focus:ring-[#ee4d2d] resize-none transition-all shadow-inner" placeholder="Ketik alamat lengkap & patokan Anda di sini...">{userAddress}</textarea>
+              
+              <div class="mt-2 text-[10px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/30 p-2 rounded-lg border border-orange-100 dark:border-orange-900/50 flex items-center gap-1.5" id="cart-distance-display">
+                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                 <span>Status Jarak: Silakan klik 'Hitung Jarak'</span>
               </div>
             </div>
           </div>
@@ -93,12 +92,10 @@ export default createRoute(async (c) => {
 
         {/* BUNGKUSAN CHECKOUT */}
         <div id="checkout-section">
-          {/* CATATAN TAMBAHAN UNTUK RESTO */}
           <div class="px-4 mt-6">
             <textarea id="order-notes" rows={2} class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-[#ee4d2d] transition-colors resize-none shadow-sm" placeholder="Ada pesan tambahan untuk restoran? (Cth: Minta banyakin saus)"></textarea>
           </div>
 
-          {/* WIDGET KUPON & VOUCHER */}
           <div class="px-4 mt-6">
              <h3 class="text-sm font-black text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
@@ -111,7 +108,6 @@ export default createRoute(async (c) => {
              <p id="coupon-message" class="text-[11px] font-bold mt-2 hidden"></p>
           </div>
 
-          {/* RINGKASAN PEMBAYARAN */}
           <div class="px-4 mt-6">
             <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3">Ringkasan Pembayaran</h3>
             <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3 text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -149,7 +145,7 @@ export default createRoute(async (c) => {
           </div>
         </div>
 
-        {/* BOTTOM NAVIGATION BAR (FIXED) */}
+        {/* BOTTOM NAVIGATION BAR (FIXED) - SEMUA LINK DI ROOT */}
         <div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.08)] z-[50]">
           <div class="flex justify-around items-center h-[60px] px-2 pb-safe">
             <a href="/" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
@@ -166,7 +162,7 @@ export default createRoute(async (c) => {
               <span class="text-[10px] font-bold">Keranjang</span>
             </a>
             <a href="/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
               <span class="text-[10px] font-semibold">Order</span>
             </a>
             <a href="/profile" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
@@ -184,9 +180,10 @@ export default createRoute(async (c) => {
         const deliverySettings = ${JSON.stringify(deliverySettings)};
         const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
         
-        let calculatedOngkir = 10000;
+        let calculatedOngkir = deliverySettings.max_range_price || 10000; 
         let isOutOfRange = false;
         let userLat = 0, userLng = 0;
+        let isGpsDetected = false;
 
         let cart = JSON.parse(localStorage.getItem('spos_cart')) || [];
         
@@ -204,7 +201,6 @@ export default createRoute(async (c) => {
           setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-4'); setTimeout(() => toast.remove(), 300); }, 2500);
         }
 
-        // --- HAVERSINE LOKASI ---
         function calculateDistance(lat1, lon1, lat2, lon2) {
           const R = 6371; 
           const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -229,21 +225,12 @@ export default createRoute(async (c) => {
 
           if(navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-              async (pos) => {
+              (pos) => {
                 userLat = pos.coords.latitude;
                 userLng = pos.coords.longitude;
+                isGpsDetected = true;
                 
                 try {
-                  const res = await fetch(\`https://nominatim.openstreetmap.org/reverse?format=json&lat=\${userLat}&lon=\${userLng}&zoom=16\`);
-                  const data = await res.json();
-                  
-                  let streetName = "Lokasi Tidak Diketahui";
-                  if (data && data.address) {
-                     streetName = data.address.road || data.address.town || data.address.village || data.address.suburb || data.display_name.split(',')[0];
-                  }
-                  
-                  document.getElementById('cart-address-display').innerText = streetName;
-                  
                   const restoLat = parseFloat(deliverySettings.resto_lat) || -6.8183497;
                   const restoLng = parseFloat(deliverySettings.resto_lng) || 107.2972743;
                   
@@ -252,25 +239,31 @@ export default createRoute(async (c) => {
 
                   if (resultOngkir === 'OUT') {
                     isOutOfRange = true;
-                    document.getElementById('cart-distance-display').innerText = \`Jarak: \${dist.toFixed(1)}KM (Di luar jangkauan pengiriman)\`;
+                    document.getElementById('cart-distance-display').innerHTML = \`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> <span>Jarak: \${dist.toFixed(1)}KM (Di luar jangkauan pengiriman)</span>\`;
                     document.getElementById('cart-distance-display').classList.replace('text-orange-500', 'text-red-500');
+                    document.getElementById('cart-distance-display').classList.replace('bg-orange-50', 'bg-red-50');
                     document.getElementById('summary-ongkir-label').innerText = 'Ongkos Kirim';
                     document.getElementById('summary-ongkir').innerText = 'Tidak Tersedia';
                     calculatedOngkir = 0;
                   } else {
                     isOutOfRange = false;
-                    document.getElementById('cart-distance-display').innerText = \`Jarak: \${dist.toFixed(1)}KM (Masuk jangkauan)\`;
-                    document.getElementById('cart-distance-display').classList.replace('text-red-500', 'text-orange-500');
+                    document.getElementById('cart-distance-display').innerHTML = \`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> <span>Jarak: \${dist.toFixed(1)}KM (Masuk jangkauan)</span>\`;
+                    document.getElementById('cart-distance-display').classList.replace('text-red-500', 'text-green-600');
+                    document.getElementById('cart-distance-display').classList.replace('bg-red-50', 'bg-green-50');
+                    document.getElementById('cart-distance-display').classList.replace('text-orange-500', 'text-green-600');
+                    document.getElementById('cart-distance-display').classList.replace('bg-orange-50', 'bg-green-50');
+                    
                     calculatedOngkir = resultOngkir;
                     document.getElementById('summary-ongkir-label').innerText = \`Ongkos Kirim (\${dist.toFixed(1)}KM)\`;
                     document.getElementById('summary-ongkir').innerText = calculatedOngkir === 0 ? 'Gratis' : formatter.format(calculatedOngkir);
                   }
                   
                   calculateGrandTotal();
-                  btn.innerText = 'Deteksi Ulang';
+                  btn.innerText = 'Hitung Ulang Jarak';
                   btn.disabled = false;
+                  showToast('Jarak pengiriman berhasil dihitung!');
                 } catch(e) {
-                   showToast('Gagal memuat alamat GPS.', true);
+                   showToast('Gagal menghitung jarak. Coba lagi.', true);
                    btn.innerText = originalText; btn.disabled = false;
                 }
               }, 
@@ -280,7 +273,7 @@ export default createRoute(async (c) => {
               }
             );
           } else {
-            showToast('GPS tidak didukung oleh perangkat.', true);
+            showToast('GPS tidak didukung oleh perangkat Anda.', true);
             btn.innerText = originalText; btn.disabled = false;
           }
         }
@@ -377,7 +370,6 @@ export default createRoute(async (c) => {
           let totalItems = 0;
 
           cart.forEach((item, index) => {
-            // PERBAIKAN: Hitung harga dasar ditambah harga opsi custom
             const unitPrice = item.price + (item.additional_price || 0);
             const itemTotal = unitPrice * item.qty;
             
@@ -457,8 +449,20 @@ export default createRoute(async (c) => {
         }
 
         async function processCheckout() {
+           if (!isGpsDetected) {
+              showToast('Harap tekan tombol "Hitung Jarak" terlebih dahulu!', true);
+              return;
+           }
+
            if(isOutOfRange) {
               showToast('Maaf, lokasi Anda di luar batas pengiriman.', true);
+              return;
+           }
+
+           const address = document.getElementById('cart-address-input').value.trim();
+           if (!address || address.length < 10) {
+              showToast('Mohon ketik alamat pengiriman dengan lengkap!', true);
+              document.getElementById('cart-address-input').focus();
               return;
            }
 
@@ -479,7 +483,6 @@ export default createRoute(async (c) => {
                return;
            }
 
-           const address = document.getElementById('cart-address-display').innerText;
            const notes = document.getElementById('order-notes').value;
            
            const payload = {
@@ -490,7 +493,7 @@ export default createRoute(async (c) => {
                note: item.note || ''
              })),
              coupon_code: appliedCouponCode || null,
-             address: address,
+             address: address, 
              notes: notes,
              ongkir: calculatedOngkir
            };
