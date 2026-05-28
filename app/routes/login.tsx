@@ -7,10 +7,10 @@ export default createRoute((c) => {
         
         {/* HEADER / BACK BUTTON */}
         <div class="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-center">
-          <a href="/users" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors shadow-sm border border-gray-100">
+          <a href="/" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors shadow-sm border border-gray-100">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
           </a>
-          <a href="/users" class="text-[11px] font-bold text-gray-400 hover:text-[#ee4d2d] transition-colors uppercase tracking-wider">Lewati</a>
+          <a href="/" class="text-[11px] font-bold text-gray-400 hover:text-[#ee4d2d] transition-colors uppercase tracking-wider">Lewati</a>
         </div>
 
         {/* ILUSTRASI & TEKS PENYAMBUTAN */}
@@ -118,7 +118,7 @@ export default createRoute((c) => {
               // Set Cookie untuk otorisasi akses
               document.cookie = \`token=\${data.token}; path=/; max-age=86400; SameSite=Lax\`;
               showToast('Berhasil masuk! Mengalihkan...');
-              setTimeout(() => { window.location.href = '/users'; }, 800);
+              setTimeout(() => { window.location.href = '/'; }, 800);
             } else {
               showToast(data.message || 'Email atau password salah!', true);
               btn.disabled = false;
