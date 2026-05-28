@@ -220,10 +220,12 @@ export default createRoute(async (c) => {
         function detectGPSLocation() {
           const btn = document.getElementById('btn-gps-refresh');
           const originalText = btn.innerText;
-          btn.innerText = 'Melacak...';
+          btn.innerText = 'Melacak Akurat...';
           btn.disabled = true;
 
           if(navigator.geolocation) {
+            // PERBAIKAN: Menambahkan opsi enableHighAccuracy agar HP Android 
+            // menggunakan GPS Satelit asli, bukan menebak dari Tower Seluler
             navigator.geolocation.getCurrentPosition(
               (pos) => {
                 userLat = pos.coords.latitude;
@@ -270,6 +272,11 @@ export default createRoute(async (c) => {
               (err) => {
                 showToast('Akses GPS ditolak, harap izinkan dari browser!', true);
                 btn.innerText = originalText; btn.disabled = false;
+              },
+              {
+                enableHighAccuracy: true, // WAJIB UNTUK HP ANDROID
+                timeout: 15000,
+                maximumAge: 0
               }
             );
           } else {
