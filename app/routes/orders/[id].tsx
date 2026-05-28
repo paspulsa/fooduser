@@ -17,6 +17,7 @@ export default createRoute(async (c) => {
     } catch (e) {}
   }
 
+  // URL sudah di-fix ke root
   if (!isUserLoggedIn) return c.redirect('/login');
 
   const orderId = c.req.param('id');
@@ -36,9 +37,9 @@ export default createRoute(async (c) => {
     WHERE od.order_id = ?
   `).bind(orderId).all();
 
-  // Tarik Data Transaksi / Pembayaran
+  // Tarik Data Transaksi / Pembayaran (Termasuk unique_code)
   const transaction: any = await c.env.DB.prepare(
-    'SELECT final_amount, status, raw_qris FROM transactions WHERE order_id = ?'
+    'SELECT final_amount, status, raw_qris, unique_code FROM transactions WHERE order_id = ?'
   ).bind(orderId).first();
 
   const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
@@ -52,20 +53,11 @@ export default createRoute(async (c) => {
           .hide-scrollbar::-webkit-scrollbar { display: none; }
           .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
           
-          /* =======================================================
-             KONFIGURASI KHUSUS PRINTER THERMAL (58mm / 80mm)
-             ======================================================= */
           @media print {
             @page { margin: 0; padding: 0; }
             body { background: white; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
-            
-            /* Sembunyikan elemen UI Aplikasi */
             .print\\:hidden { display: none !important; }
-            
-            /* Tampilkan area khusus struk */
             .print\\:block { display: block !important; }
-            
-            /* Ukuran 58mm */
             .thermal-receipt {
               width: 58mm; 
               padding: 2mm;
@@ -81,13 +73,12 @@ export default createRoute(async (c) => {
         `
       }} />
 
-      {/* =========================================================
-          1. UI APLIKASI WEB (DISEMBUNYIKAN SAAT PRINT)
-          ========================================================= */}
+      {/* 1. UI APLIKASI WEB */}
       <div class="print:hidden max-w-md mx-auto bg-gray-50 dark:bg-gray-800 min-h-screen relative shadow-2xl pb-24 transition-colors duration-300">
         
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
+            {/* URL sudah di-fix ke root */}
             <a href="/orders" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
@@ -168,6 +159,23 @@ export default createRoute(async (c) => {
                 />
               </div>
 
+              {/* FITUR KODE UNIK & TOMBOL CEK STATUS */}
+              <div class="mt-4 pt-4 border-t border-orange-200 dark:border-orange-800/50">
+                <div class="flex justify-between items-center bg-orange-100 dark:bg-orange-900/30 px-3 py-2 rounded-lg">
+                   <span class="text-xs font-bold text-orange-800 dark:text-orange-200">Kode Unik:</span>
+                   <span class="text-sm font-black text-[#ee4d2d]">+{transaction.unique_code || 0}</span>
+                </div>
+                
+                <button onclick="document.getElementById('modal-info').classList.remove('hidden')" class="text-[10px] text-[#ee4d2d] underline mt-3 font-bold w-full text-center block">
+                   Kenapa ada kode unik dan biaya lainnya?
+                </button>
+
+                <button onclick="location.reload()" class="mt-4 w-full bg-[#ee4d2d] text-white font-bold py-3 rounded-xl shadow-md hover:bg-orange-700 transition active:scale-95 flex items-center justify-center gap-2">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                   Cek Status Pembayaran
+                </button>
+              </div>
+
               <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-4 leading-relaxed max-w-[80%] mx-auto">
                 <span class="font-bold block text-gray-700 dark:text-gray-300">Cara Bayar di HP yang sama:</span>
                 Screenshot gambar QRIS di atas, buka aplikasi M-Banking/E-Wallet Anda, pilih menu Scan QR, lalu buka gambar dari Galeri.
@@ -176,11 +184,26 @@ export default createRoute(async (c) => {
           )}
 
         </div>
+        
+        {/* MODAL INFORMASI KODE UNIK & MDR */}
+        <div id="modal-info" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 class="font-black text-gray-900 dark:text-white mb-4 text-sm flex items-center gap-2">
+              <svg class="w-5 h-5 text-[#ee4d2d]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Informasi Pembayaran
+            </h3>
+            <div class="space-y-4 text-xs text-gray-600 dark:text-gray-300 leading-relaxed text-justify">
+               <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">1. Angka Unik</strong> Angka ini dibuat secara otomatis untuk mengidentifikasi pembayaran order secara otomatis dan menjadi bagian dari biaya pemrosesan pembayaran.</p>
+               <p class="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-lg border border-orange-100 dark:border-orange-800/50">Jika Anda adalah member terdaftar, maka angka unik itu akan menjadi point. Ketika Anda belanja selanjutnya, point itu otomatis akan digunakan sebagai potongan pembayaran.</p>
+               <p><strong class="text-gray-800 dark:text-gray-100 block mb-0.5">2. Biaya Layanan QRIS (MDR)</strong> Jika orderan Anda di atas <strong>Rp 500.000 - Rp 999.999</strong>, maka akan dikenakan MDR sebesar <strong>0.3%</strong> dari total pesanan dan jika di atas itu dikenakan MDR <strong>0.7%</strong> dari nilai total pembayaran.</p>
+            </div>
+            <button onclick="document.getElementById('modal-info').classList.add('hidden')" class="mt-6 w-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white font-bold py-3 rounded-xl hover:bg-gray-200 transition active:scale-95">Tutup</button>
+          </div>
+        </div>
+
       </div>
 
-      {/* =========================================================
-          2. STRUK PRINTER THERMAL (HANYA MUNCUL SAAT DI-PRINT)
-          ========================================================= */}
+      {/* 2. STRUK PRINTER THERMAL (HANYA MUNCUL SAAT DI-PRINT) */}
       <div class="hidden print:block thermal-receipt">
         <div style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 4px;">KEDAI PANGSIT KEMBAR 88</div>
         <div style="text-align: center; margin-bottom: 8px;">
