@@ -56,7 +56,7 @@ function injectAmount(qrisRaw: string, amount: number) {
 }
 
 // ==========================================
-// ENDPOINT CHECKOUT (MEMPROSES PESANAN & QRIS)
+// ENDPOINT CHECKOUT (MEMPROSES PESANAN MAKANAN & QRIS)
 // ==========================================
 orderRouter.post('/checkout', async (c) => {
   const db = c.env.DB;
@@ -96,10 +96,9 @@ orderRouter.post('/checkout', async (c) => {
     const finalRestoId = body.restaurant_id || fallbackRestoId;
     await db.prepare(`INSERT OR IGNORE INTO restaurants (id, name, address) VALUES (?, 'Cabang Utama', 'Otomatis dibuat oleh sistem')`).bind(finalRestoId).run();
 
-    // 3. Kalkulasi Total Dasar (Sebelum Diskon)
+    // 3. Kalkulasi Total Dasar (Sebelum Diskon) -> BIAYA PENGEMASAN DIHAPUS
     const ongkir = typeof body.ongkir === 'number' ? body.ongkir : (settings?.mid_range_price || 10000);
-    const serviceFee = 3000;
-    const totalBeforeDiscount = subtotal + ongkir + serviceFee;
+    const totalBeforeDiscount = subtotal + ongkir;
 
     // 4. Kalkulasi Diskon Kupon & Eksekusi Sisa Kupon ke Poin
     let rawCouponDiscount = 0;
@@ -132,25 +131,26 @@ orderRouter.post('/checkout', async (c) => {
     // 5. Total Sementara Setelah Kupon
     let baseTotal = totalBeforeDiscount - appliedCouponDiscount;
 
-    // KALKULASI BIAYA MDR (MERCHANT DISCOUNT RATE)
+    // 6. KALKULASI BIAYA MDR (MERCHANT DISCOUNT RATE)
     let mdrFee = 0;
     if (baseTotal >= 1000000) {
         mdrFee = Math.floor(baseTotal * 0.007); // 0.7%
     } else if (baseTotal >= 500000) {
         mdrFee = Math.floor(baseTotal * 0.003); // 0.3%
     }
-    baseTotal += mdrFee;
+    baseTotal += mdrFee; // Base Total sudah termasuk MDR sekarang
 
-    // 6. Cek Saldo Point User
+    // 7. Cek Saldo Point User
     const pointData: any = await db.prepare('SELECT balance FROM points WHERE user_id = ?').bind(user.id).first();
     const userPoints = pointData ? pointData.balance : 0;
 
     // ==========================================
-    // 7. LOGIKA INTI: KODE UNIK vs POTONG POINT
+    // 8. LOGIKA INTI: KODE UNIK vs POTONG POINT
     // ==========================================
     let finalAmount = baseTotal;
     let pointsUsed = 0;
     let uniqueCodeGenerated = 0;
+    const now = Math.floor(Date.now() / 1000);
 
     if (baseTotal > 0) {
         if (userPoints > 0) {
@@ -161,32 +161,54 @@ orderRouter.post('/checkout', async (c) => {
           // SKENARIO B: USER TIDAK PUNYA POINT
           const min = config.unique_min || 1;
           const max = config.unique_max || 999;
-          const now = Math.floor(Date.now() / 1000);
           
-          let isCollision = true;
-          let attempts = 0;
-          
-          while (isCollision && attempts < 15) {
-            uniqueCodeGenerated = Math.floor(Math.random() * (max - min + 1)) + min;
-            finalAmount = baseTotal + uniqueCodeGenerated;
-            
-            const exists = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(finalAmount, now).first();
-            if (!exists) isCollision = false;
-            attempts++;
+          if (mdrFee > 0) {
+              // Jika kena MDR: Cek apakah baseTotal sudah unik di antrean
+              const exists = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(baseTotal, now).first();
+              
+              if (!exists) {
+                  // Beruntung, angkanya sudah unik! Tidak perlu ditambah acak
+                  uniqueCodeGenerated = 0;
+                  finalAmount = baseTotal;
+              } else {
+                  // Sial, ada yang nominal tagihan MDR-nya sama, kita generate acak
+                  let isCollision = true;
+                  let attempts = 0;
+                  while (isCollision && attempts < 15) {
+                    uniqueCodeGenerated = Math.floor(Math.random() * (max - min + 1)) + min;
+                    finalAmount = baseTotal + uniqueCodeGenerated;
+                    
+                    const ex = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(finalAmount, now).first();
+                    if (!ex) isCollision = false;
+                    attempts++;
+                  }
+                  if (isCollision) return c.json({ success: false, message: 'Server pembayaran sedang sibuk.' }, 503);
+              }
+          } else {
+              // Jika TIDAK kena MDR: Wajib langsung generate Kode Unik (Tagihan normal sering sama)
+              let isCollision = true;
+              let attempts = 0;
+              while (isCollision && attempts < 15) {
+                uniqueCodeGenerated = Math.floor(Math.random() * (max - min + 1)) + min;
+                finalAmount = baseTotal + uniqueCodeGenerated;
+                
+                const ex = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(finalAmount, now).first();
+                if (!ex) isCollision = false;
+                attempts++;
+              }
+              if (isCollision) return c.json({ success: false, message: 'Server pembayaran sedang sibuk.' }, 503);
           }
-          
-          if (isCollision) return c.json({ success: false, message: 'Server pembayaran sedang sibuk.' }, 503);
         }
     }
 
     const orderId = 'ORD-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
     
-    // Gabungkan info alamat, notes, dan MDR ke satu field
+    // Gabungkan info catatan dan MDR ke satu field (karena tabel orders tidak ada kolom notes)
     const mdrNote = mdrFee > 0 ? `| Termasuk MDR: Rp ${mdrFee}` : '';
     const finalAddress = body.notes ? `${body.address || '-'} (Catatan: ${body.notes}) ${mdrNote}` : `${body.address || '-'} ${mdrNote}`;
 
     // ==========================================
-    // 8A. SKENARIO AUTO-LUNAS (TAGIHAN RP 0)
+    // 9A. SKENARIO AUTO-LUNAS (TAGIHAN RP 0)
     // ==========================================
     if (finalAmount === 0) {
         await db.prepare(
@@ -220,7 +242,7 @@ orderRouter.post('/checkout', async (c) => {
     }
 
     // ==========================================
-    // 8B. SKENARIO BAYAR QRIS (TAGIHAN > RP 0)
+    // 9B. SKENARIO BAYAR QRIS (TAGIHAN > RP 0)
     // ==========================================
     await db.prepare(
       `INSERT INTO orders (id, user_id, restaurant_id, total_price, status, address, order_type, payment_method, points_used, coupon_code, coupon_discount) 
@@ -244,8 +266,7 @@ orderRouter.post('/checkout', async (c) => {
         `).bind(user.id, excessCouponValue, excessCouponValue).run();
     }
 
-    const nowTimestamp = Math.floor(Date.now() / 1000);
-    const expiredAt = nowTimestamp + (30 * 60); 
+    const expiredAt = now + (30 * 60); 
     
     const rawQris = injectAmount(config.master_raw_qris, finalAmount);
     if (!rawQris) {
@@ -255,7 +276,7 @@ orderRouter.post('/checkout', async (c) => {
     await db.prepare(
       `INSERT INTO transactions (order_id, amount, unique_code, final_amount, raw_qris, status, created_at, expired_at) 
        VALUES (?, ?, ?, ?, ?, 'UNPAID', ?, ?)`
-    ).bind(orderId, baseTotal, uniqueCodeGenerated, finalAmount, rawQris, nowTimestamp, expiredAt).run();
+    ).bind(orderId, baseTotal, uniqueCodeGenerated, finalAmount, rawQris, now, expiredAt).run();
 
     return c.json({ 
       success: true, 
@@ -267,6 +288,7 @@ orderRouter.post('/checkout', async (c) => {
     return c.json({ success: false, message: 'Gagal memproses pesanan: ' + error.message }, 500);
   }
 });
+
 
 // ==========================================
 // ENDPOINT CHECKOUT VOUCHER (NON-FOOD)
@@ -304,56 +326,93 @@ orderRouter.post('/checkout-voucher', async (c) => {
 
     await db.prepare(`INSERT OR IGNORE INTO restaurants (id, name, address) VALUES ('SYSTEM', 'Sistem Pembelian Voucher', 'Digital')`).run();
 
-    // KALKULASI BIAYA MDR (MERCHANT DISCOUNT RATE) UNTUK VOUCHER
+    // KALKULASI BIAYA MDR UNTUK VOUCHER
     let mdrFee = 0;
     if (baseTotal >= 1000000) {
         mdrFee = Math.floor(baseTotal * 0.007); // 0.7%
     } else if (baseTotal >= 500000) {
         mdrFee = Math.floor(baseTotal * 0.003); // 0.3%
     }
-    baseTotal += mdrFee;
+    baseTotal += mdrFee; // Base Total voucher sudah termasuk MDR
 
     const pointData: any = await db.prepare('SELECT balance FROM points WHERE user_id = ?').bind(user.id).first();
     const userPoints = pointData ? pointData.balance : 0;
 
+    // LOGIKA INTI: KODE UNIK vs POTONG POINT UNTUK VOUCHER
     let finalAmount = baseTotal;
     let pointsUsed = 0;
-    let uniqueCode = 0;
+    let uniqueCodeGenerated = 0;
+    const now = Math.floor(Date.now() / 1000);
 
-    if (baseTotal > 0 && userPoints > 0) {
-      pointsUsed = Math.min(userPoints, baseTotal);
-      finalAmount = baseTotal - pointsUsed;
-    } else if (baseTotal > 0) {
-      const min = config.unique_min || 1;
-      const max = config.unique_max || 999;
-      uniqueCode = Math.floor(Math.random() * (max - min + 1)) + min;
-      finalAmount = baseTotal + uniqueCode;
+    if (baseTotal > 0) {
+        if (userPoints > 0) {
+          // SKENARIO A: PUNYA POINT
+          pointsUsed = Math.min(userPoints, baseTotal);
+          finalAmount = baseTotal - pointsUsed;
+        } else {
+          // SKENARIO B: TIDAK PUNYA POINT
+          const min = config.unique_min || 1;
+          const max = config.unique_max || 999;
+          
+          if (mdrFee > 0) {
+              const exists = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(baseTotal, now).first();
+              
+              if (!exists) {
+                  uniqueCodeGenerated = 0;
+                  finalAmount = baseTotal;
+              } else {
+                  let isCollision = true;
+                  let attempts = 0;
+                  while (isCollision && attempts < 15) {
+                    uniqueCodeGenerated = Math.floor(Math.random() * (max - min + 1)) + min;
+                    finalAmount = baseTotal + uniqueCodeGenerated;
+                    
+                    const ex = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(finalAmount, now).first();
+                    if (!ex) isCollision = false;
+                    attempts++;
+                  }
+                  if (isCollision) return c.json({ success: false, message: 'Server pembayaran sedang sibuk.' }, 503);
+              }
+          } else {
+              let isCollision = true;
+              let attempts = 0;
+              while (isCollision && attempts < 15) {
+                uniqueCodeGenerated = Math.floor(Math.random() * (max - min + 1)) + min;
+                finalAmount = baseTotal + uniqueCodeGenerated;
+                
+                const ex = await db.prepare("SELECT id FROM transactions WHERE final_amount = ? AND status = 'UNPAID' AND expired_at > ?").bind(finalAmount, now).first();
+                if (!ex) isCollision = false;
+                attempts++;
+              }
+              if (isCollision) return c.json({ success: false, message: 'Server pembayaran sedang sibuk.' }, 503);
+          }
+        }
     }
 
     const orderId = 'VCH-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
     
-    // Notes digabungkan ke address agar sesuai dengan skema tabel
-    const notesJson = JSON.stringify({ is_voucher: true, voucher_value: voucherValue, bulk_qty: bulkQty, mdr_fee: mdrFee });
-    const finalAddress = `DIGITAL VOUCHER | Catatan: ${notesJson}`;
+    const mdrNote = mdrFee > 0 ? `| Termasuk MDR: Rp ${mdrFee}` : '';
+    const notesJson = JSON.stringify({ is_voucher: true, voucher_value: voucherValue, bulk_qty: bulkQty });
+    const finalAddress = `DIGITAL VOUCHER | Catatan: ${notesJson} ${mdrNote}`;
 
     await db.prepare(
       `INSERT INTO orders (id, user_id, restaurant_id, total_price, status, address, order_type, payment_method, points_used) 
        VALUES (?, ?, 'SYSTEM', ?, 'PENDING', ?, 'VOUCHER', ?, ?)`
     ).bind(
-      orderId, user.id, 'SYSTEM', baseTotal, 
+      orderId, user.id, baseTotal, 
       finalAddress, 
       finalAmount === 0 ? 'POINTS' : 'QRIS', 
       pointsUsed
     ).run();
 
     if (finalAmount > 0) {
-        const now = Math.floor(Date.now() / 1000);
         const rawQris = injectAmount(config.master_raw_qris, finalAmount);
+        if (!rawQris) return c.json({ success: false, message: 'Gagal membuat QRIS dinamis.' }, 500);
         
         await db.prepare(
           `INSERT INTO transactions (order_id, amount, unique_code, final_amount, raw_qris, status, created_at, expired_at) 
            VALUES (?, ?, ?, ?, ?, 'UNPAID', ?, ?)`
-        ).bind(orderId, baseTotal, uniqueCode, finalAmount, rawQris, now, now + 1800).run();
+        ).bind(orderId, baseTotal, uniqueCodeGenerated, finalAmount, rawQris, now, now + 1800).run();
     }
 
     return c.json({ success: true, data: { order_id: orderId, final_amount: finalAmount } });
@@ -361,5 +420,3 @@ orderRouter.post('/checkout-voucher', async (c) => {
     return c.json({ success: false, message: e.message }, 500);
   }
 });
-
-// ROUTE PUT /:id/status TELAH DIHAPUS KARENA INI REPOSITORI KHUSUS USER
