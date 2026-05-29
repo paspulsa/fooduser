@@ -103,6 +103,9 @@ export default createRoute(async (c) => {
                 ) : promoItems.map((item: any) => {
                 const isOutOfStock = item.stock === 0;
                 const discountPercent = Math.round(((item.price - item.promo_price) / item.price) * 100);
+                
+                // LOGIKA STOK YANG BARU
+                const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                 return (
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-red-100 dark:border-gray-700 flex flex-col overflow-hidden group relative">
@@ -120,7 +123,7 @@ export default createRoute(async (c) => {
                         </div>
                         </div>
                         <div class="mt-3 flex justify-between items-end">
-                        <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">Sisa: {item.stock}</span>
+                        <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{stockDisplay}</span>
                         {item.is_custom === 1 ? (
                             <button onclick={!isOutOfStock ? `openProductDetail('${item.id}')` : undefined} disabled={isOutOfStock} class={`text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm transition-colors ${isOutOfStock ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-[#ee4d2d] hover:bg-[#ee4d2d] hover:text-white'}`}>Pilih</button>
                         ) : (
@@ -303,7 +306,7 @@ export default createRoute(async (c) => {
 
         async function executeVoucherCheckout(payload) {
            const token = getAuthToken();
-           if (!token) { window.location.href = '/users/login'; return; }
+           if (!token) { window.location.href = '/login'; return; }
            
            showToast('Memproses request voucher...');
            try {
@@ -313,7 +316,7 @@ export default createRoute(async (c) => {
              });
              const data = await res.json();
              if (data.success) {
-                window.location.href = '/users/orders/' + data.data.order_id;
+                window.location.href = '/orders/' + data.data.order_id;
              } else {
                 showToast(data.message || 'Gagal membuat pesanan.', true);
              }
@@ -413,7 +416,7 @@ export default createRoute(async (c) => {
            try {
               const parsedData = JSON.parse(item.custom_options); const options = Array.isArray(parsedData) ? parsedData : (parsedData.builder || []);
               options.forEach((optGroup, groupIdx) => {
-                 let html = \`<details class="group border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800 transition-all duration-300 shadow-sm" open><summary class="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 cursor-pointer select-none outline-none"><div class="flex items-center gap-2"><h4 class="font-black text-gray-900 dark:text-white text-sm">\${optGroup.title || optGroup.name}</h4>\${optGroup.is_required || optGroup.required ? '<span class="text-[9px] font-bold bg-orange-100 dark:bg-[#ee4d2d]/20 text-[#ee4d2d] px-1.5 py-0.5 rounded">Wajib</span>' : '<span class="text-[9px] font-medium text-gray-500 dark:text-gray-400">Opsional</span>'}</div><svg class="w-5 h-5 text-gray-400 dark:text-gray-500 transform group-open:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7-7-7-7"></path></svg></summary><div class="p-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">\`;
+                 let html = \`<details class="group border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800 transition-all duration-300 shadow-sm" open><summary class="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 cursor-pointer select-none outline-none"><div class="flex items-center gap-2"><h4 class="font-black text-gray-900 dark:text-white text-sm">\${optGroup.title || optGroup.name}</h4>\${optGroup.is_required || optGroup.required ? '<span class="text-[9px] font-bold bg-orange-100 dark:bg-[#ee4d2d]/20 text-[#ee4d2d] px-1.5 py-0.5 rounded">Wajib</span>' : '<span class="text-[9px] font-medium text-gray-500 dark:text-gray-400">Opsional</span>'}</div><svg class="w-5 h-5 text-gray-400 dark:text-gray-500 transform group-open:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></summary><div class="p-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">\`;
                  const choices = optGroup.choices || optGroup.options || [];
                  choices.forEach((opt, optIdx) => {
                    const inputType = optGroup.type === 'radio' ? 'radio' : 'checkbox'; const inputName = \`custom_\${groupIdx}\`; const priceText = opt.price > 0 ? \`+ \${formatter.format(opt.price)}\` : 'Gratis';
