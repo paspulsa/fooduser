@@ -6,7 +6,7 @@ export default createRoute((c) => {
   const tableName = c.req.query('table_name') || '';
   const isTakeaway = c.req.query('takeaway') || '';
 
-  let skipUrl = '/users';
+  let skipUrl = '/';
   if (tableId) {
      skipUrl = `/?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}`;
   } else if (isTakeaway) {
@@ -79,7 +79,7 @@ export default createRoute((c) => {
           </div>
 
           <div class="text-center pb-8 mt-auto">
-            <p class="text-sm text-gray-500 font-medium">Belum punya akun? <a href="/users/register" class="text-[#ee4d2d] font-bold hover:underline">Daftar di sini</a></p>
+            <p class="text-sm text-gray-500 font-medium">Belum punya akun? <a href="/register" class="text-[#ee4d2d] font-bold hover:underline">Daftar di sini</a></p>
           </div>
         </div>
       </div>
@@ -130,8 +130,10 @@ export default createRoute((c) => {
               document.cookie = \`token=\${data.token}; path=/; max-age=86400; SameSite=Lax\`;
               showToast('Berhasil masuk! Mengalihkan...');
               
-              const isTableStr = '${tableId}' !== '' ? '?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}' : '';
-              setTimeout(() => { window.location.href = '/users' + isTableStr; }, 800);
+              const tableIdStr = '${tableId}' !== '' ? '?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}' : '';
+              const tkStr = '${isTakeaway}' === 'true' ? '?takeaway=true' : '';
+              
+              setTimeout(() => { window.location.href = '/' + (tableIdStr || tkStr); }, 800);
             } else {
               showToast(data.message || 'Email atau password salah!', true);
               btn.disabled = false;
