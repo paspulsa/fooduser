@@ -117,7 +117,7 @@ export default createRoute(async (c) => {
         <div class="w-full">
           
           {/* =========================================================
-              BANNER PROMO SLIDER DINAMIS (KINI MENJADI HERO SLIDER)
+              BANNER PROMO SLIDER DINAMIS (HERO SLIDER)
               ========================================================= */}
           {appPromos.length > 0 && (
             <div class="px-4 mt-5">
@@ -177,7 +177,7 @@ export default createRoute(async (c) => {
           </div>
 
           {/* =========================================================
-              PALING LAKU DI SEKITARMU (BEST SELLERS) - DIPERBAIKI (TIDAK FULL WIDTH LAGI)
+              PALING LAKU DI SEKITARMU (BEST SELLERS)
               ========================================================= */}
           {bestSellers.length > 0 && (
             <div class="px-4 mt-4 pb-2 w-full">
@@ -191,6 +191,8 @@ export default createRoute(async (c) => {
                 {bestSellers.map((item: any, index: number) => {
                   const isOutOfStock = item.stock === 0;
                   const currentPrice = item.is_promo ? item.promo_price : item.price;
+                  // LOGIKA STOCK BARU
+                  const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                   return (
                     <div class="snap-start shrink-0 w-28 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-orange-100 dark:border-gray-700 relative flex flex-col overflow-hidden group">
@@ -238,7 +240,7 @@ export default createRoute(async (c) => {
           <div class="h-2 bg-gray-100 dark:bg-gray-900 w-full"></div>
 
           {/* =========================================================
-              FLASH SALE / PROMO GERCEP (CARD LEBIH BESAR) - DIPERBAIKI (TIDAK FULL WIDTH LAGI)
+              FLASH SALE / PROMO GERCEP
               ========================================================= */}
           {promoItems.length > 0 && (
             <div class="px-4 mt-4 w-full">
@@ -254,6 +256,8 @@ export default createRoute(async (c) => {
                 {promoItems.map((item: any) => {
                   const discountPercent = Math.round(((item.price - item.promo_price) / item.price) * 100);
                   const isOutOfStock = item.stock === 0;
+                  // LOGIKA STOCK BARU
+                  const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                   return (
                     <div class="snap-start shrink-0 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative flex flex-col overflow-hidden group">
@@ -277,7 +281,7 @@ export default createRoute(async (c) => {
                           </div>
                         </div>
                         <div class="mt-3 flex justify-between items-center">
-                          <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400">Stok: {item.stock}</span>
+                          <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400">{stockDisplay}</span>
                           {item.is_custom === 1 ? (
                             <button onclick={!isOutOfStock ? `openProductDetail('${item.id}')` : undefined} disabled={isOutOfStock} class={`text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm transition-colors ${isOutOfStock ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-[#ee4d2d] hover:bg-[#ee4d2d] hover:text-white dark:bg-[#ee4d2d]/20 dark:hover:bg-[#ee4d2d]'}`}>
                               Pilih
@@ -308,6 +312,9 @@ export default createRoute(async (c) => {
             <div class="grid grid-cols-2 gap-3 px-4">
               {recommendedItems.map((item: any) => {
                 const isOutOfStock = item.stock === 0;
+                // LOGIKA STOCK BARU
+                const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
+
                 return (
                   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden group">
                     <div class="relative h-32 w-full bg-gray-50 dark:bg-gray-700 overflow-hidden cursor-pointer" onclick={`openProductDetail('${item.id}')`}>
@@ -325,7 +332,7 @@ export default createRoute(async (c) => {
                         <span class="text-sm font-black text-gray-900 dark:text-white">{formatter.format(item.price)}</span>
                       </div>
                       <div class="mt-3 flex justify-between items-end">
-                        <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">Stok: {item.stock}</span>
+                        <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{stockDisplay}</span>
                         {item.is_custom === 1 ? (
                           <button onclick={!isOutOfStock ? `openProductDetail('${item.id}')` : undefined} disabled={isOutOfStock} class={`text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm transition-colors ${isOutOfStock ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-[#ee4d2d] hover:bg-[#ee4d2d] hover:text-white dark:bg-[#ee4d2d]/20 dark:hover:bg-[#ee4d2d]'}`}>
                             Pilih
@@ -543,7 +550,6 @@ export default createRoute(async (c) => {
           const product = PRODUCTS.find(p => p.id === id);
           if (!product) return;
 
-          // Cek apakah item tanpa varian (note kosong) sudah ada di keranjang
           const existingIndex = cart.findIndex(item => item.id === id && !item.note);
           
           if (existingIndex > -1) {
@@ -566,7 +572,6 @@ export default createRoute(async (c) => {
 
         // --- 4. FUNGSI KERANJANG MODAL (PRODUK DENGAN OPSI CUSTOM) ---
         function submitProductToCart() {
-           // Kumpulkan catatan dari input radio/checkbox yang dipilih
            let noteArr = [];
            const inputs = document.querySelectorAll('#pdm-custom-container input:checked');
            inputs.forEach(input => { 
@@ -575,7 +580,6 @@ export default createRoute(async (c) => {
            });
            const noteStr = noteArr.join(', ');
 
-           // Cek apakah produk dengan varian kustom yang SAMA PERSIS sudah ada di keranjang
            const existingIndex = cart.findIndex(item => item.id === currentActiveProduct.id && item.note === noteStr);
            
            if (existingIndex > -1) {
@@ -587,7 +591,7 @@ export default createRoute(async (c) => {
                    price: basePrice,
                    image: currentActiveProduct.image || 'https://via.placeholder.com/150',
                    qty: currentQty,
-                   additional_price: additionalPrice, // Harga tambahan per item dari custom options
+                   additional_price: additionalPrice,
                    note: noteStr
                });
            }
@@ -597,7 +601,7 @@ export default createRoute(async (c) => {
            closeProductDetail();
         }
 
-        // --- 5. LOGIKA LOKASI, PROMO, LIVE SEARCH, DLL (TETAP SAMA SEPERTI ASLINYA) ---
+        // --- 5. LOGIKA LOKASI, PROMO, LIVE SEARCH, DLL ---
         function initLocation() {
           const locElement = document.getElementById('user-location');
           const arrowIcon = '<svg class="w-4 h-4 ml-1 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
@@ -689,7 +693,8 @@ export default createRoute(async (c) => {
               (error) => { 
                 showToast('Akses GPS ditolak.', true);
                 btn.innerHTML = originalHtml; 
-              }
+              },
+              { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
           }
         }
@@ -734,6 +739,8 @@ export default createRoute(async (c) => {
             resultsContainer.innerHTML = filtered.map(item => {
               const currentPrice = item.is_promo ? item.promo_price : item.price;
               const isOutOfStock = item.stock === 0;
+              // LOGIKA STOK DI DALAM PENCARIAN
+              const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : \`Sisa \${item.stock}\`);
               
               return \`
                 <div class="flex items-center gap-3 p-3 border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" onclick="\${!isOutOfStock ? \`openProductDetail('\${item.id}'); document.getElementById('search-results').classList.add('hidden');\` : ''}">
@@ -743,7 +750,10 @@ export default createRoute(async (c) => {
                   </div>
                   <div class="flex-1 overflow-hidden">
                     <h4 class="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">\${item.name}</h4>
-                    <span class="text-xs font-black text-[#ee4d2d] mt-0.5 block">\${formatter.format(currentPrice)}</span>
+                    <div class="flex items-center gap-2 mt-0.5">
+                       <span class="text-xs font-black text-[#ee4d2d]">\${formatter.format(currentPrice)}</span>
+                       <span class="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 rounded">\${stockDisplay}</span>
+                    </div>
                   </div>
                 </div>
               \`;
@@ -778,6 +788,9 @@ export default createRoute(async (c) => {
                const imgClass = isOutOfStock ? 'opacity-50 grayscale' : 'group-hover:scale-105';
                const outOfStockOverlay = isOutOfStock ? '<div class="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[2px] flex items-center justify-center"><span class="bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md">HABIS</span></div>' : '';
 
+               // LOGIKA STOK DI DALAM KATEGORI
+               const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : \`Sisa: \${item.stock}\`);
+
                const btnHtml = item.is_custom === 1
                  ? \`<button onclick="\${!isOutOfStock ? \`openProductDetail('\${item.id}')\` : ''}" \${isOutOfStock ? 'disabled' : ''} class="text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm transition-colors \${isOutOfStock ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-orange-50 dark:bg-[#ee4d2d]/20 text-[#ee4d2d] hover:bg-[#ee4d2d] hover:text-white'}">Pilih</button>\`
                  : \`<button onclick="\${!isOutOfStock ? \`addToCart('\${item.id}', '\${item.name.replace(/'/g, "\\\\'")}', \${currentPrice})\` : ''}" \${isOutOfStock ? 'disabled' : ''} class="w-7 h-7 rounded-full flex items-center justify-center shadow-sm transition-transform active:scale-90 \${isOutOfStock ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-[#ee4d2d] text-white hover:bg-orange-700'}"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg></button>\`;
@@ -794,7 +807,7 @@ export default createRoute(async (c) => {
                        <span class="text-sm font-black text-gray-900 dark:text-white">\${formatter.format(currentPrice)}</span>
                      </div>
                      <div class="mt-3 flex justify-between items-end">
-                       <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">Sisa: \${item.stock}</span>
+                       <span class="text-[9px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">\${stockDisplay}</span>
                        \${btnHtml}
                      </div>
                    </div>
@@ -914,7 +927,7 @@ export default createRoute(async (c) => {
           initLocation();
           initPromoModal();
           updateCartBadge();
-          initSlider(); // Memulai Hero Slider
+          initSlider();
         });
       `}} />
     </div>
