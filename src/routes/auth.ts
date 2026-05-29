@@ -38,7 +38,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return newHashHex === hashHex;
 }
 
-// --- ROUTER ---
+// --- ROUTER AUTENTIKASI ---
 
 authRouter.post('/login', async (c) => {
   const { email, password } = await c.req.json();
@@ -84,31 +84,38 @@ authRouter.post('/guest-login', async (c) => {
     let finalTableId = 'TAKEAWAY';
 
     try {
-        // Jika pelanggan memilih Dine-In, kita WAJIB validasi meja
+        // 1. Jika pelanggan memilih Dine-In, WAJIB validasi meja
         if (orderType === 'DINE_IN') {
             if (!body.table_id) return c.json({ success: false, message: 'Nomor meja wajib dipilih untuk Dine-In.' }, 400);
             
             // Cek ketersediaan meja
             const table: any = await db.prepare('SELECT status FROM tables WHERE id = ?').bind(body.table_id).first();
             if (!table) return c.json({ success: false, message: 'Meja tidak ditemukan.' }, 404);
-            if (table.status !== 'IDLE') return c.json({ success: false, message: 'Meja sedang digunakan.' }, 400);
+            if (table.status !== 'IDLE') return c.json({ success: false, message: 'Meja sedang digunakan atau belum dibersihkan kasir.' }, 400);
 
-            // Kunci Meja
+            // Kunci Meja (Mencegah pelanggan lain scan QR yang sama di waktu bersamaan)
             await db.prepare("UPDATE tables SET status = 'OCCUPIED' WHERE id = ?").bind(body.table_id).run();
             finalTableId = body.table_id;
         }
 
-        // Buat ID Guest unik
-        const guestId = 'GUEST-' + crypto.randomUUID().substring(0,8).toUpperCase();
+        // 2. Buat Record "Bayangan" di Tabel Users (Agar Relasi Order & Transaksi Sah)
+        const guestId = crypto.randomUUID();
+        const dummyEmail = `guest_${guestId.substring(0,8)}@guest.local`;
+        const dummyPassword = await hashPassword(guestId); // Menggunakan UUID sbg password agar aman
 
-        // Terbitkan Token JWT Khusus Guest dengan order_type
+        await db.prepare(
+            `INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, 'USER')`
+        ).bind(guestId, body.guest_name, dummyEmail, dummyPassword).run();
+
+        // 3. Terbitkan Token JWT Khusus Guest (Menyimpan Metadata Sesi)
         const payload = {
             id: guestId,
-            role: 'GUEST',
+            role: 'USER', // Anggap sebagai USER biasa agar Middleware JWT mengizinkannya tembus
             name: body.guest_name,
             table_id: finalTableId,
-            order_type: orderType, // Menyimpan Dine In atau Takeaway ke dalam sesi
-            exp: Math.floor(Date.now() / 1000) + (12 * 60 * 60) // 12 Jam
+            order_type: orderType, // Menyimpan Dine In atau Takeaway
+            is_guest: true, // Tanda khusus
+            exp: Math.floor(Date.now() / 1000) + (12 * 60 * 60) // Expired 12 Jam
         };
 
         const token = await sign(payload, c.env.JWT_SECRET, 'HS256');
@@ -116,7 +123,8 @@ authRouter.post('/guest-login', async (c) => {
         return c.json({
             success: true,
             token,
-            message: 'Sesi Guest berhasil dibuat'
+            message: 'Sesi Guest berhasil dibuat',
+            data: { id: guestId, email: dummyEmail }
         });
     } catch (e: any) {
         return c.json({ success: false, message: 'Database Error: ' + e.message }, 500);
