@@ -81,6 +81,9 @@ export default createRoute(async (c) => {
         `
       }} />
 
+      {/* SWAL CSS/JS Khusus Prompt Meja */}
+      <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
       <div class="max-w-md mx-auto bg-gray-50 dark:bg-gray-800 min-h-screen relative shadow-2xl pb-24 overflow-x-hidden transition-colors duration-300">
         
         {/* =========================================================
@@ -89,7 +92,7 @@ export default createRoute(async (c) => {
         <div class="bg-gradient-to-b from-[#ee4d2d] to-[#ff7337] px-4 pt-6 pb-4 rounded-b-2xl shadow-sm text-white relative z-50">
           <div class="flex justify-between items-center mb-4">
             <div class="max-w-[80%] cursor-pointer group" onclick="promptManualLocation()">
-              <p class="text-[10px] font-medium opacity-90 uppercase tracking-wider mb-0.5">
+              <p id="header-delivery-text" class="text-[10px] font-medium opacity-90 uppercase tracking-wider mb-0.5">
                 {isUserLoggedIn ? `Hai, ${userName.split(' ')[0]}! Diantar ke` : 'Diantar ke'}
               </p>
               <h2 id="user-location" class="text-sm font-bold flex items-center gap-1.5 line-clamp-1 group-hover:text-gray-200 transition-colors">
@@ -191,7 +194,6 @@ export default createRoute(async (c) => {
                 {bestSellers.map((item: any, index: number) => {
                   const isOutOfStock = item.stock === 0;
                   const currentPrice = item.is_promo ? item.promo_price : item.price;
-                  // LOGIKA STOCK BARU
                   const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                   return (
@@ -256,7 +258,6 @@ export default createRoute(async (c) => {
                 {promoItems.map((item: any) => {
                   const discountPercent = Math.round(((item.price - item.promo_price) / item.price) * 100);
                   const isOutOfStock = item.stock === 0;
-                  // LOGIKA STOCK BARU
                   const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                   return (
@@ -312,7 +313,6 @@ export default createRoute(async (c) => {
             <div class="grid grid-cols-2 gap-3 px-4">
               {recommendedItems.map((item: any) => {
                 const isOutOfStock = item.stock === 0;
-                // LOGIKA STOCK BARU
                 const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : `Sisa: ${item.stock}`);
 
                 return (
@@ -352,12 +352,12 @@ export default createRoute(async (c) => {
         </div>
 
         {/* =========================================================
-            MODAL BOTTOM SHEET LOKASI
+            MODAL BOTTOM SHEET LOKASI & MEJA
             ========================================================= */}
         <div id="location-modal" class="fixed inset-0 z-[100] hidden items-end justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300 opacity-0">
           <div id="location-modal-inner" class="w-full max-w-md bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl transform translate-y-full transition-transform duration-300 p-6 pb-safe border-t border-gray-100 dark:border-gray-700">
             <div class="flex justify-between items-center mb-6">
-               <h3 class="font-black text-gray-900 dark:text-white text-lg">Alamat Pengiriman</h3>
+               <h3 class="font-black text-gray-900 dark:text-white text-lg">Pilihan Pengiriman</h3>
                <button onclick="closeLocationModal()" class="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                </button>
@@ -379,7 +379,7 @@ export default createRoute(async (c) => {
                </div>
                
                <button onclick="saveManualLocation()" class="w-full bg-[#ee4d2d] text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-[#ee4d2d]/30 hover:bg-orange-700 active:scale-[0.98] transition-all">
-                  Simpan Lokasi
+                  Simpan & Pilih Delivery
                </button>
             </div>
           </div>
@@ -489,6 +489,45 @@ export default createRoute(async (c) => {
         let basePrice = 0;
         let additionalPrice = 0;
 
+        // --- CEK URL PARAMETER UNTUK SESI MEJA (DINE IN) ---
+        function checkTableSession() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const tableId = urlParams.get('table_id');
+          const tableName = urlParams.get('table_name');
+
+          if (tableId && tableName) {
+            Swal.fire({
+              title: 'Mulai Sesi Makan?',
+              html: \`Anda memindai QR Code untuk <b>\${tableName}</b>.<br>Ingin melanjutkan pesanan untuk meja ini?\`,
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonColor: '#ee4d2d',
+              cancelButtonColor: '#9ca3af',
+              confirmButtonText: 'Ya, Lanjutkan',
+              cancelButtonText: 'Batal',
+              background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+              color: document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#1f2937'
+            }).then((result) => {
+              if(result.isConfirmed) {
+                localStorage.setItem('spos_table_id', tableId);
+                localStorage.setItem('spos_table_name', tableName);
+                // Bersihkan URL dari parameter agar tidak loop confirm saat refresh
+                window.history.replaceState({}, document.title, window.location.pathname);
+                initLocation(); // Refresh tampilan Header
+                showToast(\`Sesi \${tableName} berhasil diaktifkan!\`);
+              } else {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+            });
+          }
+        }
+
+        // --- FUNGSI HELPER UNTUK MENGHAPUS SESI MEJA ---
+        function clearTableSession() {
+            localStorage.removeItem('spos_table_id');
+            localStorage.removeItem('spos_table_name');
+        }
+
         // --- INIT HERO SLIDER ---
         function initSlider() {
           let currentSlide = 0;
@@ -550,6 +589,7 @@ export default createRoute(async (c) => {
           const product = PRODUCTS.find(p => p.id === id);
           if (!product) return;
 
+          // Cek apakah item tanpa varian (note kosong) sudah ada di keranjang
           const existingIndex = cart.findIndex(item => item.id === id && !item.note);
           
           if (existingIndex > -1) {
@@ -572,6 +612,7 @@ export default createRoute(async (c) => {
 
         // --- 4. FUNGSI KERANJANG MODAL (PRODUK DENGAN OPSI CUSTOM) ---
         function submitProductToCart() {
+           // Kumpulkan catatan dari input radio/checkbox yang dipilih
            let noteArr = [];
            const inputs = document.querySelectorAll('#pdm-custom-container input:checked');
            inputs.forEach(input => { 
@@ -580,6 +621,7 @@ export default createRoute(async (c) => {
            });
            const noteStr = noteArr.join(', ');
 
+           // Cek apakah produk dengan varian kustom yang SAMA PERSIS sudah ada di keranjang
            const existingIndex = cart.findIndex(item => item.id === currentActiveProduct.id && item.note === noteStr);
            
            if (existingIndex > -1) {
@@ -591,7 +633,7 @@ export default createRoute(async (c) => {
                    price: basePrice,
                    image: currentActiveProduct.image || 'https://via.placeholder.com/150',
                    qty: currentQty,
-                   additional_price: additionalPrice,
+                   additional_price: additionalPrice, // Harga tambahan per item dari custom options
                    note: noteStr
                });
            }
@@ -604,17 +646,34 @@ export default createRoute(async (c) => {
         // --- 5. LOGIKA LOKASI, PROMO, LIVE SEARCH, DLL ---
         function initLocation() {
           const locElement = document.getElementById('user-location');
+          const headerText = document.getElementById('header-delivery-text');
           const arrowIcon = '<svg class="w-4 h-4 ml-1 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
           
+          // PRIORITAS 1: SESI MEJA (DINE-IN)
+          const tableName = localStorage.getItem('spos_table_name');
+          if (tableName) {
+             if(headerText) headerText.innerText = 'Makan di Tempat (Dine-in)';
+             locElement.innerHTML = \`<span class="truncate">\${tableName}</span> \${arrowIcon}\`;
+             return;
+          }
+
+          // KEMBALIKAN TEKS DEFAULT (DELIVERY) JIKA BUKAN MEJA
+          if(headerText) headerText.innerText = (DB_ADDRESS && DB_ADDRESS.trim() !== '') ? 'Diantar ke' : 'Pilih Lokasi';
+
+          // PRIORITAS 2: DB ADDRESS (DELIVERY ALAMAT UTAMA)
           if (DB_ADDRESS && DB_ADDRESS.trim() !== '') {
             locElement.innerHTML = \`<span class="truncate">\${DB_ADDRESS}</span> \${arrowIcon}\`;
             return;
           }
+          
+          // PRIORITAS 3: SAVED ADDRESS LOCALSTORAGE (GUEST DELIVERY)
           const savedAddress = localStorage.getItem('user_saved_address');
           if (savedAddress) {
             locElement.innerHTML = \`<span class="truncate">\${savedAddress}</span> \${arrowIcon}\`;
             return;
           }
+          
+          // DEFAULT: GPS / PROMPT
           locElement.innerHTML = '<span class="truncate">Mendeteksi...</span> <svg class="animate-spin w-4 h-4 ml-1 flex-shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
           
           if (navigator.geolocation) {
@@ -661,10 +720,13 @@ export default createRoute(async (c) => {
         function saveManualLocation() {
           const val = document.getElementById('manual-address-input').value;
           if (val && val.trim() !== '') {
+            // BATALKAN SESI MEJA JIKA USER INGIN DELIVERY MANUAL
+            clearTableSession();
+            
             localStorage.setItem('user_saved_address', val);
-            document.getElementById('user-location').innerHTML = \`<span class="truncate">\${val}</span> <svg class="w-4 h-4 ml-1 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>\`;
+            initLocation(); // Refresh tampilan Header
             closeLocationModal();
-            showToast('Alamat berhasil disimpan');
+            showToast('Beralih ke mode Pengiriman (Delivery)');
           } else {
             showToast('Harap isi alamat dengan lengkap!', true);
           }
@@ -682,10 +744,14 @@ export default createRoute(async (c) => {
                   const res = await fetch(\`https://nominatim.openstreetmap.org/reverse?format=json&lat=\${position.coords.latitude}&lon=\${position.coords.longitude}&zoom=16\`);
                   const data = await res.json();
                   let streetName = data.address.road || data.address.suburb || data.display_name.split(',')[0];
+                  
+                  // BATALKAN SESI MEJA JIKA USER INGIN DELIVERY GPS
+                  clearTableSession();
+                  
                   localStorage.setItem('user_saved_address', streetName);
-                  document.getElementById('user-location').innerHTML = \`<span class="truncate">\${streetName}</span> <svg class="w-4 h-4 ml-1 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>\`;
+                  initLocation(); // Refresh tampilan Header
                   closeLocationModal();
-                  showToast('Lokasi akurat ditemukan!');
+                  showToast('Mode Pengiriman: Lokasi akurat ditemukan!');
                 } catch(e) {
                   showToast('Gagal memuat alamat dari GPS.', true);
                 } finally { btn.innerHTML = originalHtml; }
@@ -739,7 +805,6 @@ export default createRoute(async (c) => {
             resultsContainer.innerHTML = filtered.map(item => {
               const currentPrice = item.is_promo ? item.promo_price : item.price;
               const isOutOfStock = item.stock === 0;
-              // LOGIKA STOK DI DALAM PENCARIAN
               const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : \`Sisa \${item.stock}\`);
               
               return \`
@@ -788,7 +853,6 @@ export default createRoute(async (c) => {
                const imgClass = isOutOfStock ? 'opacity-50 grayscale' : 'group-hover:scale-105';
                const outOfStockOverlay = isOutOfStock ? '<div class="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[2px] flex items-center justify-center"><span class="bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md">HABIS</span></div>' : '';
 
-               // LOGIKA STOK DI DALAM KATEGORI
                const stockDisplay = item.stock >= 10 ? 'Tersedia' : (isOutOfStock ? 'HABIS' : \`Sisa: \${item.stock}\`);
 
                const btnHtml = item.is_custom === 1
@@ -924,10 +988,11 @@ export default createRoute(async (c) => {
 
         // INIT LOAD
         document.addEventListener('DOMContentLoaded', () => {
+          checkTableSession(); // Periksa URL Parameter QR Code Meja
           initLocation();
           initPromoModal();
           updateCartBadge();
-          initSlider();
+          initSlider(); // Memulai Hero Slider
         });
       `}} />
     </div>
