@@ -22,32 +22,25 @@ export const POST = createRoute(async (c) => {
   const action = body.action;
 
   try {
-    // A. UPDATE PROFIL
     if (action === 'update_profile') {
       await db.prepare('UPDATE users SET name = ?, phone = ?, address = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .bind(body.name, body.phone, body.address, userId).run();
       return c.json({ success: true, message: 'Profil berhasil diperbarui!' });
     }
     
-    // B. UPDATE PASSWORD
     if (action === 'update_password') {
       const user: any = await db.prepare('SELECT password FROM users WHERE id = ?').bind(userId).first();
-      // Asumsi menggunakan plain text sesuai skema sederhana awal (Jika pakai bcrypt, sesuaikan logic di sini)
-      if (user.password !== body.old_password) {
-        return c.json({ success: false, message: 'Password lama salah!' });
-      }
+      if (user.password !== body.old_password) return c.json({ success: false, message: 'Password lama salah!' });
       await db.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .bind(body.new_password, userId).run();
       return c.json({ success: true, message: 'Password berhasil diganti!' });
     }
 
-    // C. AMBIL RIWAYAT POIN (PAGINASI)
     if (action === 'get_points_history') {
       const page = parseInt(body.page) || 1;
       const limit = 10;
       const offset = (page - 1) * limit;
 
-      // Kueri cerdas menggabungkan transaksi Poin Keluar (Pesanan) dan Poin Masuk (Kode Unik / Kembalian)
       const query = `
         SELECT id as ref, created_at, points_used as amount, 'KELUAR' as type, 'Potongan Pesanan' as description
         FROM orders WHERE user_id = ? AND points_used > 0
@@ -59,46 +52,83 @@ export const POST = createRoute(async (c) => {
         LIMIT ? OFFSET ?
       `;
       const history = await db.prepare(query).bind(userId, userId, limit, offset).all();
-      
       return c.json({ success: true, data: history.results, page: page });
     }
-
     return c.json({ success: false, message: 'Aksi tidak dikenali.' }, 400);
   } catch (e: any) {
     return c.json({ success: false, message: 'DB Error: ' + e.message }, 500);
   }
 });
 
-
 // ==========================================
 // 2. RENDER UI HALAMAN PROFIL
 // ==========================================
 export default createRoute(async (c) => {
   const token = getCookie(c, 'token');
-  if (!token) return c.redirect('/login'); // Tendang ke login jika belum ada sesi
+  if (!token) return c.redirect('/users/login');
 
   let userId = '';
   try {
     const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
     userId = payload.id as string;
   } catch (e) {
-    return c.redirect('/login');
+    return c.redirect('/users/login');
   }
 
   const db = c.env.DB;
-  
-  // Tarik Data Utama User
   const user: any = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
-  if (!user) return c.redirect('/login');
+  if (!user) return c.redirect('/users/login');
 
-  // Tarik Saldo Poin
+  // Deteksi apakah ini adalah akun Tamu yang di-generate via Silent Auth
+  const isGuest = user.email && user.email.endsWith('@guest.local');
+
+  if (isGuest) {
+    return c.render(
+      <div class="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans pb-28">
+        <style dangerouslySetInnerHTML={{__html:`.pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }`}} />
+        <div class="max-w-md mx-auto bg-gray-50 dark:bg-gray-800 min-h-screen shadow-2xl overflow-hidden flex flex-col justify-center items-center p-6 text-center">
+          <div class="w-24 h-24 bg-orange-100 dark:bg-orange-900/30 text-[#ee4d2d] rounded-full flex items-center justify-center mb-6 shadow-inner">
+             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+          </div>
+          <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Sesi Aktif</h2>
+          <h1 class="text-3xl font-black text-gray-900 dark:text-white mb-2">{user.name.replace('Tamu ', '')}</h1>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-8 leading-relaxed">Anda sedang berada dalam mode pemesanan tamu. Anda dapat melihat riwayat pesanan Anda di menu Order.</p>
+          
+          <button onclick="endGuestSession()" class="w-full bg-red-50 dark:bg-red-900/20 text-red-600 font-black py-4 rounded-2xl border border-red-200 dark:border-red-800/50 hover:bg-red-500 hover:text-white transition-all shadow-sm">
+            Akhiri Sesi & Keluar
+          </button>
+
+          <script dangerouslySetInnerHTML={{__html: `
+              function endGuestSession() {
+                  localStorage.removeItem('spos_table_id');
+                  localStorage.removeItem('spos_table_name');
+                  localStorage.removeItem('spos_takeaway');
+                  localStorage.removeItem('spos_cart');
+                  document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                  window.location.href = "/";
+              }
+          `}} />
+        </div>
+
+        {/* BOTTOM NAVIGATION BAR (FIXED) */}
+        <div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.08)] z-[50]">
+          <div class="flex justify-around items-center h-[60px] px-2 pb-safe">
+            <a href="/users" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg><span class="text-[10px] font-semibold">Home</span></a>
+            <a href="/users/promos" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg><span class="text-[10px] font-semibold">Promo</span></a>
+            <a href="/users/cart" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg><span class="text-[10px] font-semibold">Keranjang</span></a>
+            <a href="/users/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg><span class="text-[10px] font-semibold">Order</span></a>
+            <a href="/users/profile" class="flex flex-col items-center gap-1 text-[#ee4d2d]"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg><span class="text-[10px] font-bold">Profile</span></a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // JIKA BUKAN GUEST (MEMBER BIASA), TAMPILKAN PROFIL PENUH
   const pts: any = await db.prepare('SELECT balance FROM points WHERE user_id = ?').bind(userId).first();
   const userPoints = pts ? pts.balance : 0;
-
-  // Hitung Voucher Aktif Milik User
   const vch: any = await db.prepare('SELECT COUNT(*) as count FROM coupons WHERE purchaser_id = ? AND is_active = 1 AND used_count = 0').bind(userId).first();
   const activeVouchers = vch ? vch.count : 0;
-
   const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
 
   return c.render(
@@ -118,7 +148,7 @@ export default createRoute(async (c) => {
         {/* HEADER */}
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
-            <a href="/" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
+            <a href="/users" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
             <h1 class="text-lg font-black text-gray-900 dark:text-white">Profil Saya</h1>
@@ -162,9 +192,7 @@ export default createRoute(async (c) => {
           </div>
         </div>
 
-        {/* ==============================================
-            TAB 1: DATA DIRI
-            ============================================== */}
+        {/* TAB 1: DATA DIRI */}
         <div id="tab-diri" class="p-4 block animate-fade-in space-y-4">
            <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
              <form id="form-profile" onsubmit="handleUpdateProfile(event)">
@@ -191,9 +219,7 @@ export default createRoute(async (c) => {
            </div>
         </div>
 
-        {/* ==============================================
-            TAB 2: GANTI PASSWORD
-            ============================================== */}
+        {/* TAB 2: GANTI PASSWORD */}
         <div id="tab-sandi" class="p-4 hidden animate-fade-in space-y-4">
            <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
              <form id="form-password" onsubmit="handleUpdatePassword(event)">
@@ -212,9 +238,7 @@ export default createRoute(async (c) => {
            </div>
         </div>
 
-        {/* ==============================================
-            TAB 3: RIWAYAT POIN (PAGINASI JS)
-            ============================================== */}
+        {/* TAB 3: RIWAYAT POIN */}
         <div id="tab-poin" class="hidden animate-fade-in">
            <div class="px-4 py-2">
              <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex items-start gap-3 mb-4">
@@ -234,25 +258,19 @@ export default createRoute(async (c) => {
            </div>
         </div>
 
-        {/* =========================================================
-            BOTTOM NAVIGATION BAR (FIXED)
-            ========================================================= */}
+        {/* BOTTOM NAVIGATION BAR */}
         <div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.08)] z-[50]">
           <div class="flex justify-around items-center h-[60px] px-2 pb-safe">
-            <a href="/" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg><span class="text-[10px] font-semibold">Home</span></a>
-            <a href="/promos" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg><span class="text-[10px] font-semibold">Promo</span></a>
-            <a href="/cart" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors relative">
-               <div id="nav-cart-badge" class="absolute -top-1 -right-1 bg-[#ee4d2d] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 hidden">0</div>
-               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg><span class="text-[10px] font-semibold">Keranjang</span>
-            </a>
-            <a href="/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg><span class="text-[10px] font-semibold">Order</span></a>
-            <a href="/profile" class="flex flex-col items-center gap-1 text-[#ee4d2d]"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg><span class="text-[10px] font-bold">Profile</span></a>
+            <a href="/users" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg><span class="text-[10px] font-semibold">Home</span></a>
+            <a href="/users/promos" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg><span class="text-[10px] font-semibold">Promo</span></a>
+            <a href="/users/cart" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors relative"><div id="nav-cart-badge" class="absolute -top-1 -right-1 bg-[#ee4d2d] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 hidden">0</div><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg><span class="text-[10px] font-semibold">Keranjang</span></a>
+            <a href="/users/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg><span class="text-[10px] font-semibold">Order</span></a>
+            <a href="/users/profile" class="flex flex-col items-center gap-1 text-[#ee4d2d]"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg><span class="text-[10px] font-bold">Profile</span></a>
           </div>
         </div>
 
       </div>
 
-      {/* SCRIPT CLIENT-SIDE LOGIC MENGGUNAKAN PENGGABUNGAN STRING KLASIK (ANTI-ERROR) */}
       <script dangerouslySetInnerHTML={{ __html: ' \
         const formatter = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }); \
         let currentPage = 1; \
@@ -286,7 +304,7 @@ export default createRoute(async (c) => {
            const btn = document.getElementById("btn-save-prof"); \
            btn.innerText = "Menyimpan..."; btn.disabled = true; \
            try { \
-             const res = await fetch("/profile", { \
+             const res = await fetch("/users/profile", { \
                 method: "POST", headers: {"Content-Type": "application/json"}, \
                 body: JSON.stringify({ \
                    action: "update_profile", \
@@ -306,7 +324,7 @@ export default createRoute(async (c) => {
            const btn = document.getElementById("btn-save-pass"); \
            btn.innerText = "Memeriksa..."; btn.disabled = true; \
            try { \
-             const res = await fetch("/profile", { \
+             const res = await fetch("/users/profile", { \
                 method: "POST", headers: {"Content-Type": "application/json"}, \
                 body: JSON.stringify({ \
                    action: "update_password", \
@@ -339,7 +357,7 @@ export default createRoute(async (c) => {
            btnPrev.disabled = true; btnNext.disabled = true; \
            \
            try { \
-             const res = await fetch("/profile", { \
+             const res = await fetch("/users/profile", { \
                 method: "POST", headers: {"Content-Type": "application/json"}, \
                 body: JSON.stringify({ action: "get_points_history", page: page }) \
              }); \
@@ -386,7 +404,7 @@ export default createRoute(async (c) => {
         \
         function logout() { \
           document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"; \
-          window.location.href = "/login"; \
+          window.location.href = "/users/login"; \
         } \
         \
         document.addEventListener("DOMContentLoaded", () => { \
