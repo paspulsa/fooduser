@@ -1,40 +1,28 @@
 import { createRoute } from 'honox/factory'
 
 export default createRoute((c) => {
-  // Ambil parameter jika ada, agar jika tamu klik 'Lewati' mereka tetap berada di sesinya.
+  // Ambil parameter jika tamu mengakses melalui QR Code Meja atau Link Takeaway
   const tableId = c.req.query('table_id') || '';
   const tableName = c.req.query('table_name') || '';
   const isTakeaway = c.req.query('takeaway') || '';
 
-  let skipUrl = '/';
-  if (tableId) {
-     skipUrl = `/?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}`;
-  } else if (isTakeaway) {
-     skipUrl = `/?takeaway=true`;
-  }
-
   return c.render(
     <div class="bg-gray-100 min-h-screen font-sans">
-      <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl overflow-hidden flex flex-col">
-        
-        {/* HEADER / BACK BUTTON */}
-        <div class="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-center">
-          <a href={skipUrl} class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors shadow-sm border border-gray-100">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
-          </a>
-          <a href={skipUrl} class="text-[11px] font-bold text-gray-400 hover:text-[#ee4d2d] transition-colors uppercase tracking-wider">Lewati</a>
-        </div>
+      {/* Dependency SweetAlert untuk Prompt Nomor Meja */}
+      <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+      <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl overflow-x-hidden flex flex-col">
+        
         {/* ILUSTRASI & TEKS PENYAMBUTAN */}
-        <div class="pt-20 px-6 pb-6 bg-gradient-to-b from-orange-50 to-white">
+        <div class="pt-16 px-6 pb-6 bg-gradient-to-b from-orange-50 to-white">
           <div class="w-16 h-16 bg-[#ee4d2d] rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center mb-6 transform -rotate-6">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
           </div>
           <h1 class="text-3xl font-black text-gray-800 tracking-tight leading-tight">Selamat Datang!</h1>
-          <p class="text-gray-500 text-sm mt-1.5 font-medium">Masuk untuk menikmati promo dan melanjutkan pesanan kuliner favoritmu.</p>
+          <p class="text-gray-500 text-sm mt-1.5 font-medium">Masuk untuk menikmati promo, atau pilih mode pesanan cepat di bawah.</p>
         </div>
 
-        {/* FORM LOGIN */}
+        {/* FORM LOGIN (UNTUK MEMBER) */}
         <div class="px-6 flex-1 flex flex-col">
           <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault(); submitLogin();">
             <div>
@@ -63,28 +51,54 @@ export default createRoute((c) => {
               </div>
             </div>
 
-            <div class="pt-4">
+            <div class="pt-2">
               <button id="btnSubmit" type="submit" class="w-full bg-[#ee4d2d] text-white font-bold text-sm py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:bg-orange-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                <span>Masuk Sekarang</span>
+                <span>Masuk Sebagai Member</span>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
               </button>
             </div>
           </form>
 
           {/* DIVIDER */}
-          <div class="mt-8 mb-6 flex items-center justify-center gap-4">
+          <div class="mt-8 mb-5 flex items-center justify-center gap-4">
             <div class="h-px bg-gray-200 flex-1"></div>
-            <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Atau</span>
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Atau Pesan Cepat (Tamu)</span>
             <div class="h-px bg-gray-200 flex-1"></div>
           </div>
 
-          <div class="text-center pb-8 mt-auto">
+          {/* PILIHAN MODE PESANAN TAMU (GUEST) */}
+          <div class="grid grid-cols-2 gap-3 mb-3">
+             <button onclick="setGuestMode('TAKEAWAY')" class="bg-orange-50 border border-orange-100 text-orange-700 hover:bg-orange-100 font-bold py-3.5 rounded-xl shadow-sm active:scale-95 transition-all text-xs flex flex-col items-center justify-center gap-1.5">
+                <span class="text-xl">🥡</span> Bawa Pulang
+             </button>
+             
+             {tableId ? (
+               <button onclick={`setGuestMode('DINE_IN', '${tableId}', '${tableName.replace(/'/g, "\\'")}')`} class="bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold py-3.5 rounded-xl shadow-sm active:scale-95 transition-all text-xs flex flex-col items-center justify-center gap-1.5">
+                  <span class="text-xl">🍽️</span> Meja: {tableName}
+               </button>
+             ) : (
+               <button onclick="promptTable()" class="bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100 font-bold py-3.5 rounded-xl shadow-sm active:scale-95 transition-all text-xs flex flex-col items-center justify-center gap-1.5">
+                  <span class="text-xl">🍽️</span> Makan di Tempat
+               </button>
+             )}
+          </div>
+          
+          <button onclick="setGuestMode('DELIVERY')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold py-3.5 rounded-xl shadow-sm active:scale-95 transition-all text-xs flex items-center justify-center gap-2 mb-8">
+             <span class="text-xl">🛵</span> Pesan Antar (Delivery)
+          </button>
+
+          <div class="text-center pb-8 mt-auto border-t border-gray-100 pt-5">
             <p class="text-sm text-gray-500 font-medium">Belum punya akun? <a href="/register" class="text-[#ee4d2d] font-bold hover:underline">Daftar di sini</a></p>
           </div>
         </div>
       </div>
 
       <script dangerouslySetInnerHTML={{ __html: `
+        // URL Parameter untuk disimpan setelah login berhasil
+        const P_TABLE_ID = "${tableId}";
+        const P_TABLE_NAME = "${tableName.replace(/"/g, '&quot;')}";
+        const P_TAKEAWAY = "${isTakeaway}";
+
         function togglePassword() {
           const input = document.getElementById('password');
           const icon = document.getElementById('eye-icon');
@@ -109,6 +123,44 @@ export default createRoute((c) => {
           setTimeout(() => { toast.classList.remove('opacity-100', 'translate-y-0'); toast.classList.add('opacity-0', '-translate-y-4'); setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
+        // --- FUNGSI KLIK GUEST ---
+        function setGuestMode(mode, tid = '', tname = '') {
+            if (mode === 'TAKEAWAY') {
+               localStorage.setItem('spos_takeaway', 'true');
+               localStorage.removeItem('spos_table_id');
+               localStorage.removeItem('spos_table_name');
+            } else if (mode === 'DINE_IN') {
+               localStorage.setItem('spos_takeaway', 'false');
+               localStorage.setItem('spos_table_id', tid);
+               localStorage.setItem('spos_table_name', tname);
+            } else {
+               // DELIVERY
+               localStorage.removeItem('spos_takeaway');
+               localStorage.removeItem('spos_table_id');
+               localStorage.removeItem('spos_table_name');
+            }
+            window.location.href = '/';
+        }
+
+        function promptTable() {
+           Swal.fire({
+              title: 'Makan di Tempat',
+              text: 'Masukkan nomor meja Anda:',
+              input: 'text',
+              inputPlaceholder: 'Contoh: 01, VIP 2...',
+              showCancelButton: true,
+              confirmButtonText: 'Lanjut Pesan',
+              cancelButtonText: 'Batal',
+              confirmButtonColor: '#ee4d2d'
+           }).then(res => {
+              if (res.isConfirmed && res.value) {
+                 // Gunakan string unik sebagai ID Meja Custom
+                 const customTableId = 'TBL-' + Math.random().toString(36).substr(2,6).toUpperCase();
+                 setGuestMode('DINE_IN', customTableId, res.value);
+              }
+           });
+        }
+
         async function submitLogin() {
           const btn = document.getElementById('btnSubmit');
           const originalText = btn.innerHTML;
@@ -130,10 +182,18 @@ export default createRoute((c) => {
               document.cookie = \`token=\${data.token}; path=/; max-age=86400; SameSite=Lax\`;
               showToast('Berhasil masuk! Mengalihkan...');
               
-              const tableIdStr = '${tableId}' !== '' ? '?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}' : '';
-              const tkStr = '${isTakeaway}' === 'true' ? '?takeaway=true' : '';
-              
-              setTimeout(() => { window.location.href = '/' + (tableIdStr || tkStr); }, 800);
+              // Simpan preferensi URL ke localStorage sebelum Redirect ke Home
+              if (P_TABLE_ID) {
+                 localStorage.setItem('spos_takeaway', 'false');
+                 localStorage.setItem('spos_table_id', P_TABLE_ID);
+                 localStorage.setItem('spos_table_name', P_TABLE_NAME);
+              } else if (P_TAKEAWAY === 'true') {
+                 localStorage.setItem('spos_takeaway', 'true');
+                 localStorage.removeItem('spos_table_id');
+                 localStorage.removeItem('spos_table_name');
+              }
+
+              setTimeout(() => { window.location.href = '/'; }, 800);
             } else {
               showToast(data.message || 'Email atau password salah!', true);
               btn.disabled = false;
