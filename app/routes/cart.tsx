@@ -50,7 +50,7 @@ export default createRoute(async (c) => {
         {/* HEADER KERANJANG */}
         <div class="bg-white dark:bg-gray-800 px-4 pt-6 pb-4 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 dark:border-gray-700">
           <div class="flex items-center gap-3">
-            <a href="/users" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
+            <a href="/" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
             </a>
             <h1 class="text-lg font-black text-gray-900 dark:text-white">Keranjang Saya</h1>
@@ -147,24 +147,24 @@ export default createRoute(async (c) => {
         {/* BOTTOM NAVIGATION BAR */}
         <div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.08)] z-[50]">
           <div class="flex justify-around items-center h-[60px] px-2 pb-safe">
-            <a href="/users" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
+            <a href="/" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
               <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
               <span class="text-[10px] font-semibold">Home</span>
             </a>
-            <a href="/users/promos" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
+            <a href="/promos" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
               <span class="text-[10px] font-semibold">Promo</span>
             </a>
-            <a href="/users/cart" class="flex flex-col items-center gap-1 text-[#ee4d2d] relative">
+            <a href="/cart" class="flex flex-col items-center gap-1 text-[#ee4d2d] relative">
               <div id="nav-cart-badge" class="absolute -top-1 -right-1 bg-[#ee4d2d] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 hidden">0</div>
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 014 0z"></path></svg>
               <span class="text-[10px] font-bold">Keranjang</span>
             </a>
-            <a href="/users/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
+            <a href="/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
               <span class="text-[10px] font-semibold">Order</span>
             </a>
-            <a href="/users/profile" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
+            <a href="/profile" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
               <span class="text-[10px] font-semibold">Profile</span>
             </a>
@@ -334,7 +334,7 @@ export default createRoute(async (c) => {
           const badge = document.getElementById('nav-cart-badge');
 
           if (cart.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"><div class="text-5xl mb-4">🛒</div><h4 class="font-bold text-gray-900 dark:text-white">Keranjang masih kosong</h4><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Yuk, cari makanan lezat sekarang!</p><a href="/users" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-orange-500/30 hover:bg-orange-700 transition-colors">Mulai Pesan</a></div>';
+            container.innerHTML = '<div class="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"><div class="text-5xl mb-4">🛒</div><h4 class="font-bold text-gray-900 dark:text-white">Keranjang masih kosong</h4><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Yuk, cari makanan lezat sekarang!</p><a href="/" class="mt-5 inline-block bg-[#ee4d2d] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-orange-500/30 hover:bg-orange-700 transition-colors">Mulai Pesan</a></div>';
             checkoutSection.classList.add('hidden');
             if(badge) badge.classList.add('hidden');
             return;
@@ -438,11 +438,11 @@ export default createRoute(async (c) => {
                            document.cookie = \`token=\${dataAuth.token}; path=/; max-age=86400; SameSite=Lax\`;
                            token = dataAuth.token;
                        } else {
-                           window.location.href = '/users/login'; return;
+                           window.location.href = '/login'; return;
                        }
-                   } catch(e) { window.location.href = '/users/login'; return; }
+                   } catch(e) { window.location.href = '/login'; return; }
                } else {
-                   window.location.href = '/users/login'; return;
+                   window.location.href = '/login'; return;
                }
            }
 
@@ -473,13 +473,13 @@ export default createRoute(async (c) => {
                body: JSON.stringify(payload)
              });
              
-             if (res.status === 401) { window.location.href = '/users/login'; return; }
+             if (res.status === 401) { window.location.href = '/login'; return; }
 
              const data = await res.json();
              if (data.success) {
                localStorage.removeItem('spos_cart');
                showToast('Pesanan berhasil dibuat!');
-               setTimeout(() => { window.location.href = '/users/orders/' + data.data.order_id; }, 1500);
+               setTimeout(() => { window.location.href = '/orders/' + data.data.order_id; }, 1500);
              } else {
                showToast(data.message || 'Gagal membuat pesanan.', true);
              }
