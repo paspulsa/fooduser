@@ -1,10 +1,28 @@
 import { createRoute } from 'honox/factory'
 
-export default createRoute((c) => {
+export default createRoute(async (c) => {
   // Ambil parameter jika tamu mengakses melalui QR Code Meja atau Link Takeaway
   const tableId = c.req.query('table_id') || '';
   const tableName = c.req.query('table_name') || '';
   const isTakeaway = c.req.query('takeaway') || '';
+
+  // TARIK DATA MEJA DARI DATABASE UNTUK DROPDOWN
+  let tables: any[] = [];
+  try {
+    const res = await c.env.DB.prepare("SELECT id, name, status FROM tables ORDER BY name ASC").all();
+    tables = res.results || [];
+  } catch (e) {
+    console.error("Gagal mengambil data meja:", e);
+  }
+
+  let skipUrl = '/';
+  if (tableId) {
+     skipUrl = `/?table_id=${tableId}&table_name=${encodeURIComponent(tableName)}`;
+  } else if (isTakeaway) {
+     skipUrl = `/?takeaway=true`;
+  }
+
+  const safeTablesJson = JSON.stringify(tables).replace(/</g, '\\u003c');
 
   return c.render(
     <div class="bg-gray-100 min-h-screen font-sans">
@@ -13,6 +31,14 @@ export default createRoute((c) => {
 
       <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl overflow-x-hidden flex flex-col">
         
+        {/* HEADER / BACK BUTTON */}
+        <div class="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-center">
+          <a href={skipUrl} class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors shadow-sm border border-gray-100">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+          </a>
+          <a href={skipUrl} class="text-[11px] font-bold text-gray-400 hover:text-[#ee4d2d] transition-colors uppercase tracking-wider">Lewati</a>
+        </div>
+
         {/* ILUSTRASI & TEKS PENYAMBUTAN */}
         <div class="pt-16 px-6 pb-6 bg-gradient-to-b from-orange-50 to-white">
           <div class="w-16 h-16 bg-[#ee4d2d] rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center mb-6 transform -rotate-6">
@@ -94,6 +120,9 @@ export default createRoute((c) => {
       </div>
 
       <script dangerouslySetInnerHTML={{ __html: `
+        // Data Meja dari Server
+        const DB_TABLES = ${safeTablesJson};
+
         // URL Parameter untuk disimpan setelah login berhasil
         const P_TABLE_ID = "${tableId}";
         const P_TABLE_NAME = "${tableName.replace(/"/g, '&quot;')}";
@@ -143,20 +172,50 @@ export default createRoute((c) => {
         }
 
         function promptTable() {
+           // Buat opsi dropdown khusus meja yang IDLE
+           let optionsHtml = '';
+           let availableCount = 0;
+           
+           DB_TABLES.forEach(t => {
+               if(t.status === 'IDLE') {
+                   optionsHtml += \`<option value="\${t.id}">\${t.name}</option>\`;
+                   availableCount++;
+               }
+           });
+
+           if (availableCount === 0) {
+               Swal.fire({
+                   title: 'Mohon Maaf',
+                   text: 'Saat ini semua meja sedang penuh atau belum dibersihkan. Mohon tunggu sebentar.',
+                   icon: 'info',
+                   confirmButtonColor: '#ee4d2d'
+               });
+               return;
+           }
+
            Swal.fire({
-              title: 'Makan di Tempat',
-              text: 'Masukkan nomor meja Anda:',
-              input: 'text',
-              inputPlaceholder: 'Contoh: 01, VIP 2...',
+              title: 'Pilih Meja Anda',
+              html: \`
+                 <select id="swal-table-select" class="swal2-select w-full max-w-[80%] mx-auto mt-4 p-3 rounded-xl border border-gray-300 focus:outline-none focus:border-[#ee4d2d] text-sm">
+                    <option value="" disabled selected>-- Ketuk untuk memilih meja --</option>
+                    \${optionsHtml}
+                 </select>
+              \`,
               showCancelButton: true,
-              confirmButtonText: 'Lanjut Pesan',
+              confirmButtonText: 'Pilih & Pesan',
               cancelButtonText: 'Batal',
-              confirmButtonColor: '#ee4d2d'
+              confirmButtonColor: '#ee4d2d',
+              preConfirm: () => {
+                 const selectEl = document.getElementById('swal-table-select');
+                 const val = selectEl.value;
+                 if (!val) {
+                    Swal.showValidationMessage('Anda harus memilih meja terlebih dahulu!');
+                 }
+                 return { id: val, name: selectEl.options[selectEl.selectedIndex].text };
+              }
            }).then(res => {
               if (res.isConfirmed && res.value) {
-                 // Gunakan string unik sebagai ID Meja Custom
-                 const customTableId = 'TBL-' + Math.random().toString(36).substr(2,6).toUpperCase();
-                 setGuestMode('DINE_IN', customTableId, res.value);
+                 setGuestMode('DINE_IN', res.value.id, res.value.name);
               }
            });
         }
