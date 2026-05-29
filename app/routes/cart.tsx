@@ -423,22 +423,29 @@ export default createRoute(async (c) => {
            };
            let token = getCookie('token');
 
-           // TEKNIK SILENT AUTHENTICATION UNTUK TAMU MEJA/TAKEAWAY
+           // TEKNIK SILENT AUTHENTICATION UNTUK TAMU MEJA/TAKEAWAY (DIPERBAIKI)
            if (!token) {
                if (isDineIn || isTakeaway) {
-                   const dummyId = Math.random().toString(36).substr(2,9);
                    const guestNameStr = isDineIn ? 'Tamu ' + tableName : 'Tamu Takeaway';
+                   const targetType = isDineIn ? 'DINE_IN' : 'TAKEAWAY';
+                   
                    try {
-                       const resAuth = await fetch('/api/v1/auth/register', {
+                       const resAuth = await fetch('/api/v1/auth/guest-login', {
                            method: 'POST', headers: {'Content-Type': 'application/json'},
-                           body: JSON.stringify({ name: guestNameStr, email: \`guest_\${dummyId}@guest.local\`, password: 'guest', phone: '000000000', role: 'USER' })
+                           body: JSON.stringify({ 
+                               guest_name: guestNameStr, 
+                               order_type: targetType, 
+                               table_id: localStorage.getItem('spos_table_id') 
+                           })
                        });
                        const dataAuth = await resAuth.json();
-                       if (dataAuth.token) {
+                       if (dataAuth.success && dataAuth.token) {
                            document.cookie = \`token=\${dataAuth.token}; path=/; max-age=86400; SameSite=Lax\`;
                            token = dataAuth.token;
                        } else {
-                           window.location.href = '/login'; return;
+                           showToast(dataAuth.message || 'Gagal membuat sesi meja.', true);
+                           btn.innerHTML = originalHtml; btn.disabled = false;
+                           return; // Batalkan proses checkout jika meja dikunci/gagal
                        }
                    } catch(e) { window.location.href = '/login'; return; }
                } else {
