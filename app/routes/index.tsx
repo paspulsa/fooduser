@@ -442,14 +442,14 @@ export default createRoute(async (c) => {
         </div>
 
         {/* =========================================================
-            MODAL BANNER POPUP DINAMIS (DIPERBAIKI UNTUK GAMBAR TRANSPARAN)
+            MODAL BANNER POPUP DINAMIS (TRANSPARAN TANPA KABUT)
             ========================================================= */}
         {modalPromo && (
-          <div id="promo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/70 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+          <div id="promo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-transparent transition-opacity duration-300 opacity-0">
             <div class="relative w-full max-w-sm transform scale-95 transition-transform duration-300 flex flex-col items-center" id="promo-modal-inner">
               
               {/* Tombol close melayang di luar batas gambar */}
-              <button onclick="closePromoModal()" class="absolute -top-12 right-0 w-10 h-10 bg-white/20 border border-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition z-10 shadow-lg">
+              <button onclick="closePromoModal()" class="absolute -top-12 right-0 w-10 h-10 bg-white/80 border border-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-gray-800 hover:bg-white transition z-10 shadow-lg">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
               
@@ -861,7 +861,6 @@ export default createRoute(async (c) => {
               modal.classList.add('flex');
               setTimeout(() => {
                 modal.classList.remove('opacity-0');
-                document.getElementById('promo-modal-inner').classList.remove('scale-95');
               }, 10);
             }, 1000);
           }
@@ -871,7 +870,6 @@ export default createRoute(async (c) => {
           const modal = document.getElementById('promo-modal');
           sessionStorage.setItem('promo_seen', 'true');
           modal.classList.add('opacity-0');
-          document.getElementById('promo-modal-inner').classList.add('scale-95');
           setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
         }
 
