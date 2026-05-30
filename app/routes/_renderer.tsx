@@ -8,69 +8,56 @@ export default jsxRenderer(({ children, title }) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
         <title>{title || 'Kedai Pangsit Kembar 88'}</title>
         
-        {/* PWA Tags untuk Aplikasi Pengguna */}
+        {/* PWA Tags Khusus Pengguna Publik */}
         <link rel="manifest" href="/manifest-user.json" />
         <meta name="theme-color" content="#ee4d2d" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <script src="https://cdn.tailwindcss.com"></script>
-        
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-            .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-            @keyframes fadeIn {
-              from { opacity: 0; transform: translateY(10px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `
-        }} />
         
         <script dangerouslySetInnerHTML={{
           __html: `
             tailwind.config = {
-              darkMode: 'class',
               theme: {
                 extend: {
-                  colors: {
-                    primary: '#ee4d2d',
-                  }
+                  colors: { primary: '#ee4d2d' }
                 }
               }
             }
           `
         }} />
       </head>
-      <body class="bg-gray-100 antialiased selection:bg-[#ee4d2d] selection:text-white">
+      <body class="bg-gray-50 text-gray-900 font-sans antialiased selection:bg-[#ee4d2d] selection:text-white pb-safe">
         
         {children}
 
         {/* =========================================================
-            PWA INSTALL BANNER (MUNCUL DI BAWAH)
+            PWA INSTALL BANNER (MUNCUL MENGAMBANG DI BAWAH)
             ========================================================= */}
-        <div id="pwa-install-banner" class="fixed bottom-[80px] left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm bg-gray-900 text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between z-[100] transition-transform duration-500 translate-y-40 hidden">
+        <div id="pwa-install-banner" class="fixed bottom-[80px] left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm bg-gray-900 text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between z-[100] transition-transform duration-500 translate-y-40 hidden border border-gray-700">
            <div class="flex items-center gap-3">
               <div class="bg-[#ee4d2d] p-2 rounded-xl text-white shadow-inner flex-shrink-0">
                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               </div>
               <div class="pr-2">
                  <p class="text-[11px] font-bold leading-snug">Install Pangsit Kembar 88 di HP anda.</p>
-                 <p class="text-[9px] text-gray-300 mt-0.5 font-medium">Lebih cepat, hemat kuota & tanpa buka browser</p>
+                 <p class="text-[9px] text-gray-300 mt-0.5 font-medium">Akses lebih cepat & tanpa browser!</p>
               </div>
            </div>
-           <button id="pwa-install-btn" class="bg-[#ee4d2d] hover:bg-orange-700 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-md transition-transform active:scale-95 flex-shrink-0 border border-orange-500/50">
+           
+           <button id="pwa-install-btn" class="bg-[#ee4d2d] hover:bg-orange-700 text-white text-[11px] font-black px-4 py-2.5 rounded-xl shadow-md transition-transform active:scale-95 flex-shrink-0">
              Install
            </button>
            
-           {/* Tombol Close */}
+           {/* Tombol Silang (Close) */}
            <button id="pwa-dismiss-btn" class="absolute -top-2 -right-2 bg-gray-800 text-gray-400 rounded-full p-1.5 border border-gray-600 shadow-md hover:text-white hover:bg-gray-700 transition-colors">
              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
            </button>
         </div>
 
-        {/* Script PWA & Service Worker */}
+        {/* LOGIKA PWA & SERVICE WORKER */}
         <script dangerouslySetInnerHTML={{ __html: `
           // 1. Registrasi Service Worker
           if ('serviceWorker' in navigator) {
@@ -85,47 +72,44 @@ export default jsxRenderer(({ children, title }) => {
           const installBtn = document.getElementById('pwa-install-btn');
           const dismissBtn = document.getElementById('pwa-dismiss-btn');
 
+          // Browser menembakkan event ini jika aplikasi memenuhi syarat di-install
           window.addEventListener('beforeinstallprompt', (e) => {
-            // Mencegah mini-infobar bawaan browser muncul
+            // Cegah banner bawaan browser yang jelek muncul
             e.preventDefault();
-            
-            // Simpan event untuk dipicu saat tombol diklik
+            // Simpan event untuk kita picu nanti
             deferredPrompt = e;
             
-            // Tampilkan Banner Custom kita (Animasi muncul dari bawah)
+            // Munculkan Banner Custom (Slide-up Animasi)
             installBanner.classList.remove('hidden');
-            // Sedikit delay agar transisi CSS jalan
             setTimeout(() => {
               installBanner.classList.remove('translate-y-40');
             }, 100);
           });
 
-          // Aksi ketika tombol Install diklik
+          // Saat User Klik Tombol Install di Banner Kita
           installBtn.addEventListener('click', async () => {
-            // Sembunyikan banner
+            // Sembunyikan banner perlahan
             installBanner.classList.add('translate-y-40');
             setTimeout(() => { installBanner.classList.add('hidden'); }, 500);
             
             if (deferredPrompt) {
-               // Tampilkan prompt instalasi native dari Browser
+               // Tampilkan prompt instalasi HP bawaan Android/OS
                deferredPrompt.prompt();
-               // Tunggu respon pengguna (Di-install atau batal)
                const { outcome } = await deferredPrompt.userChoice;
                if (outcome === 'accepted') {
-                 console.log('User menginstall PWA Pangsit Kembar 88');
+                 console.log('PWA berhasil di-install');
                }
-               // Reset prompt
                deferredPrompt = null;
             }
           });
 
-          // Aksi ketika tombol silang (Tutup) diklik
+          // Saat User Klik Tombol Silang (X)
           dismissBtn.addEventListener('click', () => {
             installBanner.classList.add('translate-y-40');
             setTimeout(() => { installBanner.classList.add('hidden'); }, 500);
           });
 
-          // Sembunyikan banner secara permanen di sesi tersebut jika PWA berhasil terinstal 
+          // Jika aplikasi sukses diinstal, pastikan banner hilang permanen
           window.addEventListener('appinstalled', () => {
             installBanner.classList.add('hidden');
             deferredPrompt = null;
