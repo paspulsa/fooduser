@@ -28,6 +28,14 @@ export default jsxRenderer(({ children, title }) => {
               }
             `
           }} />
+
+          <link rel="manifest" href="/manifest-user.json" />
+        <meta name="theme-color" content="#ee4d2d" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); });
+          }
+        `}} />
         </head>
         <body class="bg-gray-50 text-gray-900 font-sans antialiased">
           {children}
