@@ -9,6 +9,7 @@ export default createRoute(async (c) => {
   let userAddress = '';
   let userName = '';
   let isUserLoggedIn = false;
+  let userId = '';
 
   const token = getCookie(c, 'token');
   
@@ -16,9 +17,10 @@ export default createRoute(async (c) => {
     try {
       const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
       if (payload && payload.id) {
+        userId = payload.id as string;
         const user = await c.env.DB.prepare(
           'SELECT name, address FROM users WHERE id = ?'
-        ).bind(payload.id).first<any>();
+        ).bind(userId).first<any>();
         
         if (user) {
           isUserLoggedIn = true;
@@ -29,6 +31,34 @@ export default createRoute(async (c) => {
     } catch (e) {
       console.log("Token user invalid atau tidak ada");
     }
+  }
+
+  // ==========================================
+  // 1.5. LOGIKA NOTIFIKASI STATUS PESANAN (IKON BEL)
+  // ==========================================
+  let hasActiveOrder = false;
+  let notifMessage = "Belum ada pesanan aktif saat ini. Yuk pesan makanan favoritmu!";
+  let activeOrderId = "";
+
+  if (userId) {
+     const activeOrder = await c.env.DB.prepare(
+         "SELECT id, status, kitchen_status FROM orders WHERE user_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY created_at DESC LIMIT 1"
+     ).bind(userId).first<any>();
+
+     if (activeOrder) {
+         hasActiveOrder = true;
+         activeOrderId = activeOrder.id;
+         
+         if (activeOrder.status === 'PENDING') {
+             notifMessage = "Pesanan menunggu pembayaran, silahkan lakukan pembayaran dulu agar dapat diproses! Untuk pembayaran cash, silahkan menuju meja kasir.";
+         } else if (activeOrder.status === 'PROCESSING' || activeOrder.status === 'PREPARING') {
+             notifMessage = "Pembayaran anda telah diterima, pesanan sedang disiapkan oleh koki terbaik kami. Mohon menunggu.";
+         } else if (activeOrder.status === 'DELIVERING' || activeOrder.kitchen_status === 'READY') {
+             notifMessage = "Pesanan sudah siap untuk diantar oleh waiter kami.";
+         } else {
+             notifMessage = "Pesanan Anda sedang diproses oleh sistem.";
+         }
+     }
   }
 
   // ==========================================
@@ -87,7 +117,7 @@ export default createRoute(async (c) => {
       <div class="max-w-md mx-auto bg-gray-50 dark:bg-gray-800 min-h-screen relative shadow-2xl pb-24 overflow-x-hidden transition-colors duration-300">
         
         {/* =========================================================
-            HEADER & SEARCH BAR (DENGAN LIVE SEARCH)
+            HEADER & SEARCH BAR (DENGAN LIVE SEARCH & NOTIFIKASI)
             ========================================================= */}
         <div class="bg-gradient-to-b from-[#ee4d2d] to-[#ff7337] px-4 pt-6 pb-4 rounded-b-2xl shadow-sm text-white relative z-50">
           <div class="flex justify-between items-center mb-4">
@@ -99,9 +129,35 @@ export default createRoute(async (c) => {
                 <div class="w-32 h-4 bg-white/20 rounded animate-pulse"></div>
               </h2>
             </div>
-            <button class="bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-sm transition flex-shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-            </button>
+            
+            {/* WRAPPER IKON NOTIFIKASI (BEL) */}
+            <div class="relative">
+               <button onclick="toggleNotif()" class="relative bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-sm transition flex-shrink-0">
+                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                 {hasActiveOrder && (
+                    <>
+                      <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-green-400 border border-[#ee4d2d] rounded-full animate-ping"></span>
+                      <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 border border-[#ee4d2d] rounded-full shadow-sm"></span>
+                    </>
+                 )}
+               </button>
+
+               {/* DROPDOWN NOTIFIKASI */}
+               <div id="notif-dropdown" class="absolute top-full right-0 mt-3 w-72 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 hidden z-[100] transform origin-top-right transition-all opacity-0 scale-95">
+                  <div class="p-4 text-left">
+                     <h3 class="font-black text-gray-900 dark:text-white text-sm mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-[#ee4d2d]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Status Pesanan Anda
+                     </h3>
+                     <div class={`p-3 rounded-xl border ${hasActiveOrder ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600'}`}>
+                        <p class="text-xs text-gray-700 dark:text-gray-300 leading-relaxed font-medium">{notifMessage}</p>
+                        {hasActiveOrder && (
+                           <a href={`/orders/${activeOrderId}`} class="mt-3 block text-center bg-[#ee4d2d] text-white text-[10px] font-bold py-2 rounded-lg shadow-sm active:scale-95 transition-transform">Lacak Pesanan</a>
+                        )}
+                     </div>
+                  </div>
+               </div>
+            </div>
           </div>
           
           <div class="relative z-[60]">
@@ -488,6 +544,32 @@ export default createRoute(async (c) => {
         let currentQty = 1;
         let basePrice = 0;
         let additionalPrice = 0;
+
+        // --- FUNGSI TOGGLE NOTIFIKASI DROPDOWN ---
+        function toggleNotif() {
+           const dropdown = document.getElementById('notif-dropdown');
+           if (dropdown.classList.contains('hidden')) {
+              dropdown.classList.remove('hidden');
+              setTimeout(() => {
+                 dropdown.classList.remove('opacity-0', 'scale-95');
+              }, 10);
+           } else {
+              dropdown.classList.add('opacity-0', 'scale-95');
+              setTimeout(() => {
+                 dropdown.classList.add('hidden');
+              }, 200);
+           }
+        }
+        
+        // Tutup notifikasi ketika klik di area luar
+        document.addEventListener('click', (e) => {
+           const btn = e.target.closest('button[onclick="toggleNotif()"]');
+           const dropdown = document.getElementById('notif-dropdown');
+           if (!btn && dropdown && !dropdown.contains(e.target) && !dropdown.classList.contains('hidden')) {
+               dropdown.classList.add('opacity-0', 'scale-95');
+               setTimeout(() => { dropdown.classList.add('hidden'); }, 200);
+           }
+        });
 
         // --- CEK URL PARAMETER UNTUK SESI MEJA (DINE IN) ---
         function checkTableSession() {
