@@ -106,7 +106,7 @@ export default createRoute(async (c) => {
              <p id="coupon-message" class="text-[11px] font-bold mt-2 hidden"></p>
           </div>
 
-          {/* METODE PEMBAYARAN (BARU DITAMBAHKAN) */}
+          {/* METODE PEMBAYARAN (DIPERBAIKI SECARA PAKSA DOM) */}
           <div class="px-4 mt-6">
              <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
@@ -114,7 +114,8 @@ export default createRoute(async (c) => {
              </h3>
              <div class="grid grid-cols-2 gap-3">
                 <label class="relative cursor-pointer">
-                   <input type="radio" name="payment_method" value="DIGITAL" class="peer sr-only" onchange="changePaymentMethod('DIGITAL')" checked />
+                   {/* PERBAIKAN: VALUE DIUBAH MENJADI QRIS AGAR DIKENALI DATABASE */}
+                   <input type="radio" name="payment_method" value="QRIS" class="peer sr-only" onchange="changePaymentMethod('QRIS')" checked />
                    <div class="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 peer-checked:border-[#ee4d2d] peer-checked:bg-orange-50 dark:peer-checked:bg-[#ee4d2d]/10 transition-all flex flex-col items-center justify-center text-center gap-2">
                       <span class="text-2xl">📱</span>
                       <span class="text-xs font-bold text-gray-700 dark:text-gray-300 peer-checked:text-[#ee4d2d]">QRIS / Digital</span>
@@ -217,9 +218,6 @@ export default createRoute(async (c) => {
         let discountPointValue = 0;
         let calculatedSubtotal = 0;
 
-        // VARIABEL METODE PEMBAYARAN
-        let selectedPaymentMethod = 'DIGITAL';
-
         // CEK SESI MEJA (DINE IN) ATAU TAKEAWAY
         let isDineIn = !!localStorage.getItem('spos_table_id');
         let tableName = localStorage.getItem('spos_table_name');
@@ -234,9 +232,8 @@ export default createRoute(async (c) => {
           setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-4'); setTimeout(() => toast.remove(), 300); }, 2500);
         }
 
-        // FUNGSI GANTI METODE PEMBAYARAN
+        // FUNGSI GANTI METODE PEMBAYARAN UI
         function changePaymentMethod(method) {
-            selectedPaymentMethod = method;
             const infoText = document.getElementById('payment-info');
             if (method === 'CASH') {
                 infoText.innerHTML = '<span class="text-[#ee4d2d] font-black">PENTING:</span> Pesanan akan terkirim, namun dapur baru akan memprosesnya <b class="text-gray-900 dark:text-white">setelah Anda melakukan pembayaran uang tunai di meja kasir.</b>';
@@ -476,6 +473,10 @@ export default createRoute(async (c) => {
            btn.innerHTML = '<span class="text-sm">Memproses...</span>';
            btn.disabled = true;
 
+           // PERBAIKAN: Ambil Payment Method langsung dari elemen yang dipilih (Lebih aman dari bug JS)
+           const selectedPaymentEl = document.querySelector('input[name="payment_method"]:checked');
+           const finalPaymentMethod = selectedPaymentEl ? selectedPaymentEl.value : 'QRIS';
+
            const getCookie = (name) => {
              const value = "; " + document.cookie;
              const parts = value.split("; " + name + "=");
@@ -528,7 +529,7 @@ export default createRoute(async (c) => {
              notes: notes,
              ongkir: calculatedOngkir,
              order_type: finalOrderType,
-             payment_method: selectedPaymentMethod, // MENGIRIM METODE PEMBAYARAN
+             payment_method: finalPaymentMethod, // Menggunakan variabel yang dijamin akurat dari DOM
              table_id: isDineIn ? localStorage.getItem('spos_table_id') : null,
              guest_name: isDineIn ? 'Tamu ' + tableName : (isTakeaway ? 'Tamu Takeaway' : null)
            };
