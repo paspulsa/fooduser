@@ -442,17 +442,22 @@ export default createRoute(async (c) => {
         </div>
 
         {/* =========================================================
-            MODAL BANNER POPUP DINAMIS
+            MODAL BANNER POPUP DINAMIS (DIPERBAIKI UNTUK GAMBAR TRANSPARAN)
             ========================================================= */}
         {modalPromo && (
-          <div id="promo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
-            <div class="relative w-full max-w-sm bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="promo-modal-inner">
-              <button onclick="closePromoModal()" class="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/60 transition z-10">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+          <div id="promo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/70 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+            <div class="relative w-full max-w-sm transform scale-95 transition-transform duration-300 flex flex-col items-center" id="promo-modal-inner">
+              
+              {/* Tombol close melayang di luar batas gambar */}
+              <button onclick="closePromoModal()" class="absolute -top-12 right-0 w-10 h-10 bg-white/20 border border-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition z-10 shadow-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
-              <a href={modalPromo.action_url || '#'}>
-                <img src={modalPromo.image} class="w-full object-cover" alt="Spesial Promo" />
+              
+              <a href={modalPromo.action_url || '#'} class="w-full block">
+                {/* Gambar diberi efek drop-shadow agar bayangan mengikuti lekukan transparansi */}
+                <img src={modalPromo.image} class="w-full h-auto object-contain drop-shadow-2xl" alt="Spesial Promo" />
               </a>
+              
             </div>
           </div>
         )}
