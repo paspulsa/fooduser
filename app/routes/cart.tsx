@@ -157,7 +157,7 @@ export default createRoute(async (c) => {
             </a>
             <a href="/cart" class="flex flex-col items-center gap-1 text-[#ee4d2d] relative">
               <div id="nav-cart-badge" class="absolute -top-1 -right-1 bg-[#ee4d2d] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 hidden">0</div>
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 014 0z"></path></svg>
               <span class="text-[10px] font-bold">Keranjang</span>
             </a>
             <a href="/orders" class="flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-[#ee4d2d] transition-colors">
@@ -179,7 +179,6 @@ export default createRoute(async (c) => {
         const deliverySettings = ${JSON.stringify(deliverySettings)};
         const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
         
-        // PERBAIKAN: Set default ongkir ke 0 dan bukan 10000 agar tidak memotong logika awal saat belum dihitung
         let calculatedOngkir = 0;
         let isOutOfRange = false;
         let userLat = 0, userLng = 0;
@@ -229,7 +228,7 @@ export default createRoute(async (c) => {
            }
         }
 
-        // PERBAIKAN: Fungsi Haversine untuk kalkulasi jarak dalam Kilometer
+        // PERBAIKAN: Fungsi Haversine untuk kalkulasi jarak
         function calculateDistance(lat1, lon1, lat2, lon2) {
           const R = 6371; // Radius bumi dalam km
           const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -240,7 +239,7 @@ export default createRoute(async (c) => {
           return R * c; 
         }
 
-        // PERBAIKAN: Menggunakan Number() untuk memastikan setting dari DB tidak tertukar menjadi string
+        // PERBAIKAN: Memastikan parse data dari Database menjadi Number Murni
         function determineOngkir(distanceKm) {
           const maxLimit = Number(deliverySettings.max_radius_limit) || 5;
           const freeRange = Number(deliverySettings.free_range_max) || 2;
@@ -273,8 +272,13 @@ export default createRoute(async (c) => {
                   let streetName = data.address.road || data.address.town || data.display_name.split(',')[0];
                   document.getElementById('cart-address-display').innerText = streetName;
                   
-                  const restoLat = Number(deliverySettings.resto_lat);
-                  const restoLng = Number(deliverySettings.resto_lng);
+                  // PERBAIKAN: Mengatasi bug NaNKM dengan mem-parse koma menjadi titik (jika database salah ketik koma)
+                  const safeRestoLat = deliverySettings.resto_lat ? String(deliverySettings.resto_lat).replace(',', '.') : '-6.8183497';
+                  const safeRestoLng = deliverySettings.resto_lng ? String(deliverySettings.resto_lng).replace(',', '.') : '107.2972743';
+                  
+                  const restoLat = parseFloat(safeRestoLat) || -6.8183497;
+                  const restoLng = parseFloat(safeRestoLng) || 107.2972743;
+                  
                   const dist = calculateDistance(restoLat, restoLng, userLat, userLng);
                   const resultOngkir = determineOngkir(dist);
 
