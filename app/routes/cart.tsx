@@ -106,6 +106,33 @@ export default createRoute(async (c) => {
              <p id="coupon-message" class="text-[11px] font-bold mt-2 hidden"></p>
           </div>
 
+          {/* METODE PEMBAYARAN (BARU DITAMBAHKAN) */}
+          <div class="px-4 mt-6">
+             <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
+               <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+               Metode Pembayaran
+             </h3>
+             <div class="grid grid-cols-2 gap-3">
+                <label class="relative cursor-pointer">
+                   <input type="radio" name="payment_method" value="DIGITAL" class="peer sr-only" onchange="changePaymentMethod('DIGITAL')" checked />
+                   <div class="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 peer-checked:border-[#ee4d2d] peer-checked:bg-orange-50 dark:peer-checked:bg-[#ee4d2d]/10 transition-all flex flex-col items-center justify-center text-center gap-2">
+                      <span class="text-2xl">📱</span>
+                      <span class="text-xs font-bold text-gray-700 dark:text-gray-300 peer-checked:text-[#ee4d2d]">QRIS / Digital</span>
+                   </div>
+                </label>
+                <label class="relative cursor-pointer">
+                   <input type="radio" name="payment_method" value="CASH" class="peer sr-only" onchange="changePaymentMethod('CASH')" />
+                   <div class="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 peer-checked:border-[#ee4d2d] peer-checked:bg-orange-50 dark:peer-checked:bg-[#ee4d2d]/10 transition-all flex flex-col items-center justify-center text-center gap-2">
+                      <span class="text-2xl">💵</span>
+                      <span class="text-xs font-bold text-gray-700 dark:text-gray-300 peer-checked:text-[#ee4d2d]">Tunai (Kasir)</span>
+                   </div>
+                </label>
+             </div>
+             <p id="payment-info" class="text-[10px] text-gray-500 dark:text-gray-400 mt-2.5 font-medium leading-relaxed bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
+                Pembayaran otomatis melalui QRIS / E-Wallet. Pesanan Anda akan langsung diproses oleh dapur setelah pembayaran berhasil.
+             </p>
+          </div>
+
           {/* RINGKASAN PEMBAYARAN */}
           <div class="px-4 mt-6">
             <h3 class="text-sm font-black text-gray-900 dark:text-white mb-3">Ringkasan Pembayaran</h3>
@@ -190,6 +217,9 @@ export default createRoute(async (c) => {
         let discountPointValue = 0;
         let calculatedSubtotal = 0;
 
+        // VARIABEL METODE PEMBAYARAN
+        let selectedPaymentMethod = 'DIGITAL';
+
         // CEK SESI MEJA (DINE IN) ATAU TAKEAWAY
         let isDineIn = !!localStorage.getItem('spos_table_id');
         let tableName = localStorage.getItem('spos_table_name');
@@ -204,7 +234,21 @@ export default createRoute(async (c) => {
           setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-4'); setTimeout(() => toast.remove(), 300); }, 2500);
         }
 
-        // Jika mode meja / takeaway, ubah UI
+        // FUNGSI GANTI METODE PEMBAYARAN
+        function changePaymentMethod(method) {
+            selectedPaymentMethod = method;
+            const infoText = document.getElementById('payment-info');
+            if (method === 'CASH') {
+                infoText.innerHTML = '<span class="text-[#ee4d2d] font-black">PENTING:</span> Pesanan akan terkirim, namun dapur baru akan memprosesnya <b class="text-gray-900 dark:text-white">setelah Anda melakukan pembayaran uang tunai di meja kasir.</b>';
+                infoText.classList.replace('bg-gray-100', 'bg-orange-50');
+                infoText.classList.replace('dark:bg-gray-700', 'dark:bg-orange-900/30');
+            } else {
+                infoText.innerHTML = 'Pembayaran otomatis melalui QRIS / E-Wallet. Pesanan Anda akan langsung diproses oleh dapur setelah pembayaran berhasil.';
+                infoText.classList.replace('bg-orange-50', 'bg-gray-100');
+                infoText.classList.replace('dark:bg-orange-900/30', 'dark:bg-gray-700');
+            }
+        }
+
         function adaptUIForSession() {
            if (isDineIn || isTakeaway) {
               document.getElementById('address-header-text').innerText = isDineIn ? 'Sesi Makan di Tempat' : 'Sesi Bawa Pulang';
@@ -213,13 +257,11 @@ export default createRoute(async (c) => {
               document.getElementById('cart-distance-display').classList.replace('text-orange-500', 'text-green-500');
               
               document.getElementById('btn-gps-refresh').style.display = 'none';
-              document.getElementById('ongkir-row-container').style.display = 'none'; // Sembunyikan Ongkir
+              document.getElementById('ongkir-row-container').style.display = 'none'; 
               
               calculatedOngkir = 0;
               isOutOfRange = false;
            } else {
-              // Jika ini mode pengiriman (Delivery), jalankan deteksi GPS
-              // PENTING: Hanya jalankan jika tidak ada default DB_ADDRESS
               if(DB_ADDRESS) {
                   document.getElementById('cart-address-display').innerText = DB_ADDRESS;
               } else {
@@ -228,9 +270,8 @@ export default createRoute(async (c) => {
            }
         }
 
-        // PERBAIKAN: Fungsi Haversine untuk kalkulasi jarak
         function calculateDistance(lat1, lon1, lat2, lon2) {
-          const R = 6371; // Radius bumi dalam km
+          const R = 6371; 
           const dLat = (lat2 - lat1) * Math.PI / 180;
           const dLon = (lon2 - lon1) * Math.PI / 180;
           const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
@@ -239,7 +280,6 @@ export default createRoute(async (c) => {
           return R * c; 
         }
 
-        // PERBAIKAN: Memastikan parse data dari Database menjadi Number Murni
         function determineOngkir(distanceKm) {
           const maxLimit = Number(deliverySettings.max_radius_limit) || 5;
           const freeRange = Number(deliverySettings.free_range_max) || 2;
@@ -254,7 +294,7 @@ export default createRoute(async (c) => {
         }
 
         function detectGPSLocation() {
-          if (isDineIn || isTakeaway) return; // Abaikan jika sesi meja
+          if (isDineIn || isTakeaway) return; 
 
           const btn = document.getElementById('btn-gps-refresh');
           const originalText = btn.innerText;
@@ -272,7 +312,6 @@ export default createRoute(async (c) => {
                   let streetName = data.address.road || data.address.town || data.display_name.split(',')[0];
                   document.getElementById('cart-address-display').innerText = streetName;
                   
-                  // PERBAIKAN: Mengatasi bug NaNKM dengan mem-parse koma menjadi titik (jika database salah ketik koma)
                   const safeRestoLat = deliverySettings.resto_lat ? String(deliverySettings.resto_lat).replace(',', '.') : '-6.8183497';
                   const safeRestoLng = deliverySettings.resto_lng ? String(deliverySettings.resto_lng).replace(',', '.') : '107.2972743';
                   
@@ -444,7 +483,6 @@ export default createRoute(async (c) => {
            };
            let token = getCookie('token');
 
-           // TEKNIK SILENT AUTHENTICATION UNTUK TAMU MEJA/TAKEAWAY (DIPERBAIKI)
            if (!token) {
                if (isDineIn || isTakeaway) {
                    const guestNameStr = isDineIn ? 'Tamu ' + tableName : 'Tamu Takeaway';
@@ -466,7 +504,7 @@ export default createRoute(async (c) => {
                        } else {
                            showToast(dataAuth.message || 'Gagal membuat sesi meja.', true);
                            btn.innerHTML = originalHtml; btn.disabled = false;
-                           return; // Batalkan proses checkout jika meja dikunci/gagal
+                           return; 
                        }
                    } catch(e) { window.location.href = '/login'; return; }
                } else {
@@ -490,6 +528,7 @@ export default createRoute(async (c) => {
              notes: notes,
              ongkir: calculatedOngkir,
              order_type: finalOrderType,
+             payment_method: selectedPaymentMethod, // MENGIRIM METODE PEMBAYARAN
              table_id: isDineIn ? localStorage.getItem('spos_table_id') : null,
              guest_name: isDineIn ? 'Tamu ' + tableName : (isTakeaway ? 'Tamu Takeaway' : null)
            };
